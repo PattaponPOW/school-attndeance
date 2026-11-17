@@ -3,39 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบเช็กชื่อนักเรียนและสถิติการมาเรียน</title>
+    <title>ระบบบันทึกสถิติการมาเรียนออนไลน์</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
     <style>
         body { font-family: 'Sarabun', sans-serif; }
-        /* ปรับขนาดปุ่มกดบนมือถือให้กดง่ายขึ้น */
-        .btn-touch { min-width: 36px; min-height: 36px; }
+        .btn-touch { min-width: 38px; min-height: 38px; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 pb-12">
+<body class="bg-slate-50 text-slate-800 pb-14">
 
     <!-- Header -->
-    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-20">
-        <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto px-3 md:px-4 py-3 flex flex-wrap justify-between items-center gap-2">
             <div>
-                <h1 class="text-lg md:text-xl font-bold flex items-center gap-2">
+                <h1 class="text-base md:text-xl font-bold flex items-center gap-2">
                     📊 ระบบบันทึกสถิติการมาเรียน
                 </h1>
-                <p class="text-xs text-indigo-100" id="currentDateDisplay"></p>
+                <div class="flex items-center gap-2 mt-0.5">
+                    <span id="connectionStatus" class="inline-flex items-center gap-1 text-[11px] bg-indigo-800/70 px-2 py-0.5 rounded-full text-amber-300">
+                        ● โหมดออฟไลน์ (Local)
+                    </span>
+                </div>
             </div>
-            <div class="flex gap-2">
-                <button onclick="exportCSV()" class="bg-emerald-500 hover:bg-emerald-600 text-white text-xs md:text-sm font-medium px-3 py-2 rounded-lg shadow transition flex items-center gap-1">
-                    📥 ส่งออก CSV
+            
+            <div class="flex flex-wrap gap-1.5 md:gap-2">
+                <button onclick="openModal('firebaseModal')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium px-2.5 py-2 rounded-lg shadow transition">
+                    🔥 ตั้งค่า Firebase
                 </button>
-                <button onclick="resetData()" class="bg-rose-500 hover:bg-rose-600 text-white text-xs md:text-sm font-medium px-3 py-2 rounded-lg shadow transition">
-                    รีเซ็ต
+                <button onclick="openModal('classModal')" class="bg-sky-500 hover:bg-sky-600 text-white text-xs font-medium px-2.5 py-2 rounded-lg shadow transition">
+                    ⚙️ จัดการห้องเรียน
+                </button>
+                <button onclick="exportCSV()" class="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium px-2.5 py-2 rounded-lg shadow transition">
+                    📥 CSV
                 </button>
             </div>
         </div>
     </header>
 
     <main class="max-w-6xl mx-auto px-3 md:px-4 mt-4 space-y-5">
+
+        <!-- Date Picker & Quick Actions Bar -->
+        <section class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            <div class="flex items-center justify-between sm:justify-start gap-2">
+                <label for="datePicker" class="text-sm font-bold text-slate-700 whitespace-nowrap">📅 วันที่บันทึก:</label>
+                <input type="date" id="datePicker" onchange="onDateChange()" 
+                    class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50/40 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div class="flex items-center justify-between sm:justify-end gap-2">
+                <span id="thaiDateLabel" class="text-xs text-slate-500"></span>
+                <button onclick="resetTodayData()" class="text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg font-medium transition">
+                    ล้างยอดวันนี้เป็น 0
+                </button>
+            </div>
+        </section>
 
         <!-- Summary Cards (2x2 on Mobile, 4 cols on Desktop) -->
         <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -46,7 +73,7 @@
             </div>
 
             <div class="bg-white p-3.5 rounded-xl shadow-sm border border-emerald-100">
-                <p class="text-xs text-emerald-600 font-medium">มาเรียนวันนี้ (คน)</p>
+                <p class="text-xs text-emerald-600 font-medium">มาเรียน (คน)</p>
                 <p class="text-2xl font-bold text-emerald-600 mt-1" id="totalPresent">0</p>
                 <p class="text-[11px] text-slate-400 mt-0.5" id="presentGenderText">ชาย 0 | หญิง 0</p>
             </div>
@@ -64,29 +91,27 @@
             </div>
         </section>
 
-        <!-- Data Entry Section (Mobile Friendly Cards + Desktop Table) -->
+        <!-- Data Entry Section -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
             <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h2 class="font-bold text-slate-800 text-base">📝 บันทึกการขาดเรียนรายห้อง</h2>
-                    <p class="text-xs text-slate-500">กดปุ่ม + หรือ - เพื่อระบุจำนวนนักเรียนที่ <span class="text-rose-600 font-semibold">ขาด/ลา/ป่วย</span> (ระบบคำนวณยอดมาเรียนอัตโนมัติ)</p>
+                    <p class="text-xs text-slate-500">กดปุ่ม <span class="font-bold text-rose-600">+</span> หรือ <span class="font-bold">-</span> เฉพาะนักเรียนที่ <span class="text-rose-600 font-semibold">ขาด/ลา/ป่วย</span> (บันทึกอัตโนมัติตามวันที่เลือก)</p>
                 </div>
-                <input type="text" id="searchInput" onkeyup="renderClasses()" placeholder="🔍 ค้นหาชั้นเรียน เช่น ป.1..." 
-                    class="text-sm border border-slate-200 rounded-lg px-3 py-2 w-full sm:w-56 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="searchInput" onkeyup="renderClasses()" placeholder="🔍 ค้นหาชั้นเรียน..." 
+                    class="text-sm border border-slate-200 rounded-lg px-3 py-2 w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
 
-            <!-- Mobile Card View (แสดงบนจอมือถือ) -->
-            <div id="mobileCardList" class="divide-y divide-slate-100 md:hidden">
-                <!-- Cards generated by JS -->
-            </div>
+            <!-- Mobile Card View -->
+            <div id="mobileCardList" class="divide-y divide-slate-100 md:hidden"></div>
 
-            <!-- Desktop Table View (แสดงบนจอคอมพิวเตอร์) -->
+            <!-- Desktop Table View -->
             <div class="hidden md:block overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-slate-50 text-slate-600 text-xs uppercase border-b border-slate-200">
                             <th class="py-3 px-4">ชั้นเรียน</th>
-                            <th class="py-3 px-4 text-center">นักเรียนทั้งหมด<br><span class="text-[10px] font-normal">(ช / ญ)</span></th>
+                            <th class="py-3 px-4 text-center">ทั้งหมด<br><span class="text-[10px] font-normal">(ช / ญ)</span></th>
                             <th class="py-3 px-4 text-center text-emerald-700">มาเรียน<br><span class="text-[10px] font-normal">(ช / ญ)</span></th>
                             <th class="py-3 px-4 text-center text-rose-600">ขาด / ลา / ป่วย (ชาย)</th>
                             <th class="py-3 px-4 text-center text-rose-600">ขาด / ลา / ป่วย (หญิง)</th>
@@ -94,23 +119,29 @@
                             <th class="py-3 px-4 text-center">สถานะ</th>
                         </tr>
                     </thead>
-                    <tbody id="desktopTableBody" class="divide-y divide-slate-100 text-sm">
-                        <!-- Rows generated by JS -->
-                    </tbody>
+                    <tbody id="desktopTableBody" class="divide-y divide-slate-100 text-sm"></tbody>
                 </table>
             </div>
         </section>
 
-        <!-- Charts Section -->
+        <!-- Charts & Historical Stats Section -->
         <section class="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 lg:col-span-2">
-                <h3 class="font-bold text-slate-700 text-sm mb-3">📈 เปอร์เซ็นต์การมาเรียนแยกตามชั้นเรียน (%)</h3>
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                    <h3 class="font-bold text-slate-700 text-sm">📈 กราฟสถิติการมาเรียน (%)</h3>
+                    <div class="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs">
+                        <button onclick="setChartMode('daily')" id="tabDaily" class="px-2.5 py-1 rounded-md bg-white text-indigo-600 font-bold shadow-sm">รายวัน (แยกห้อง)</button>
+                        <button onclick="setChartMode('monthly')" id="tabMonthly" class="px-2.5 py-1 rounded-md text-slate-600 font-medium">รายเดือน (แนวโน้ม)</button>
+                        <button onclick="setChartMode('yearly')" id="tabYearly" class="px-2.5 py-1 rounded-md text-slate-600 font-medium">รายปี (เฉลี่ยเดือน)</button>
+                    </div>
+                </div>
                 <div class="h-64">
                     <canvas id="barChart"></canvas>
                 </div>
             </div>
+
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-                <h3 class="font-bold text-slate-700 text-sm mb-3">🍩 สัดส่วนการมาเรียน ชาย vs หญิง</h3>
+                <h3 class="font-bold text-slate-700 text-sm mb-3">🍩 สัดส่วนมาเรียนวันนี้ ชาย vs หญิง</h3>
                 <div class="h-64 flex items-center justify-center">
                     <canvas id="doughnutChart"></canvas>
                 </div>
@@ -119,60 +150,231 @@
 
     </main>
 
+    <!-- Modal 1: ตั้งค่า Firebase -->
+    <div id="firebaseModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-lg text-slate-800">🔥 เชื่อมต่อ Firebase Realtime Database</h3>
+                <button onclick="closeModal('firebaseModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+                นำโค้ด <b>firebaseConfig</b> (เฉพาะส่วนในปีกกา <code>{ ... }</code>) จากหน้า Project Settings ของ Firebase มาวางด้านล่าง เพื่อเปิดใช้งานการบันทึกข้อมูลออนไลน์และซิงก์ข้ามเครื่อง:
+            </p>
+            <textarea id="firebaseConfigInput" rows="7" placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "your-app.firebaseapp.com",
+  "databaseURL": "https://your-app-default-rtdb.asia-southeast1.firebasedatabase.app",
+  "projectId": "your-app",
+  "storageBucket": "your-app.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "1:123456789:web:abcdef"
+}' class="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+            
+            <div class="flex justify-between items-center pt-2">
+                <button onclick="disconnectFirebase()" class="text-xs text-rose-600 hover:underline">ยกเลิกการเชื่อมต่อ</button>
+                <div class="flex gap-2">
+                    <button onclick="closeModal('firebaseModal')" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg">ปิด</button>
+                    <button onclick="saveFirebaseConfig()" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow">บันทึกและเชื่อมต่อ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: จัดการห้องเรียน -->
+    <div id="classModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-xl space-y-4 max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-2">
+                <h3 class="font-bold text-lg text-slate-800">⚙️ จัดการรายชื่อห้องและจำนวนนักเรียน</h3>
+                <button onclick="closeModal('classModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+            </div>
+            
+            <div id="classEditorList" class="overflow-y-auto space-y-2 pr-1 flex-1"></div>
+
+            <div class="border-t pt-3 flex justify-between items-center">
+                <button onclick="addNewClassRow()" class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-lg font-bold hover:bg-emerald-100">
+                    + เพิ่มห้องเรียนใหม่
+                </button>
+                <div class="flex gap-2">
+                    <button onclick="closeModal('classModal')" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg">ยกเลิก</button>
+                    <button onclick="saveClassConfig()" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow">บันทึกห้องเรียน</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // ข้อมูลตั้งต้นรายห้อง (สามารถแก้ไขจำนวนนักเรียนทั้งหมดได้ตามจริง)
-        const initialClasses = [
-            { id: 'k1', name: 'อนุบาล 1', totalM: 12, totalF: 10, absentM: 0, absentF: 0 },
-            { id: 'k2', name: 'อนุบาล 2', totalM: 14, totalF: 13, absentM: 0, absentF: 0 },
-            { id: 'p1', name: 'ป.1', totalM: 18, totalF: 16, absentM: 0, absentF: 0 },
-            { id: 'p2', name: 'ป.2', totalM: 15, totalF: 17, absentM: 0, absentF: 0 },
-            { id: 'p3', name: 'ป.3', totalM: 19, totalF: 15, absentM: 0, absentF: 0 },
-            { id: 'p4', name: 'ป.4', totalM: 16, totalF: 18, absentM: 0, absentF: 0 },
-            { id: 'p5', name: 'ป.5', totalM: 20, totalF: 17, absentM: 0, absentF: 0 },
-            { id: 'p6', name: 'ป.6', totalM: 17, totalF: 19, absentM: 0, absentF: 0 }
+        // --- 1. State & Initial Data ---
+        const defaultClasses = [
+            { id: 'k1', name: 'อนุบาล 1', totalM: 12, totalF: 10 },
+            { id: 'k2', name: 'อนุบาล 2', totalM: 14, totalF: 13 },
+            { id: 'p1', name: 'ป.1', totalM: 18, totalF: 16 },
+            { id: 'p2', name: 'ป.2', totalM: 15, totalF: 17 },
+            { id: 'p3', name: 'ป.3', totalM: 19, totalF: 15 },
+            { id: 'p4', name: 'ป.4', totalM: 16, totalF: 18 },
+            { id: 'p5', name: 'ป.5', totalM: 20, totalF: 17 },
+            { id: 'p6', name: 'ป.6', totalM: 17, totalF: 19 }
         ];
 
-        let classData = JSON.parse(localStorage.getItem('schoolAttendanceV2')) || initialClasses;
+        let classes = JSON.parse(localStorage.getItem('att_classes')) || defaultClasses;
+        // โครงสร้าง records: { "2026-11-17": { "p1": { absentM: 1, absentF: 0 }, ... } }
+        let allRecords = JSON.parse(localStorage.getItem('att_records')) || {};
+        
+        let currentDate = new Date().toISOString().slice(0, 10);
+        let chartMode = 'daily'; // 'daily' | 'monthly' | 'yearly'
+        let db = null;
+        let isFirebaseConnected = false;
+
         let barChartInstance = null;
         let doughnutChartInstance = null;
 
-        // แสดงวันที่ปัจจุบัน
-        const today = new Date();
-        document.getElementById('currentDateDisplay').innerText = today.toLocaleDateString('th-TH', {
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-        });
+        // ตั้งค่าวันที่เริ่มต้นในช่อง Date Picker
+        const datePicker = document.getElementById('datePicker');
+        datePicker.value = currentDate;
+        updateThaiDateLabel();
 
-        function saveData() {
-            localStorage.setItem('schoolAttendanceV2', JSON.stringify(classData));
-            updateDashboard();
+        // --- 2. Firebase Connection Logic ---
+        function initFirebase() {
+            const savedConfigStr = localStorage.getItem('att_firebase_config');
+            if (!savedConfigStr) return;
+
+            try {
+                const config = JSON.parse(savedConfigStr);
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(config);
+                }
+                db = firebase.database();
+                isFirebaseConnected = true;
+
+                const statusEl = document.getElementById('connectionStatus');
+                statusEl.className = "inline-flex items-center gap-1 text-[11px] bg-emerald-500/20 border border-emerald-300/40 px-2 py-0.5 rounded-full text-emerald-200 font-medium";
+                statusEl.innerHTML = "● ออนไลน์ (Firebase Sync)";
+
+                // Listen ข้อมูลห้องเรียนแบบ Realtime
+                db.ref('schoolAttendance/classes').on('value', (snapshot) => {
+                    const val = snapshot.val();
+                    if (val && Array.isArray(val)) {
+                        classes = val;
+                        localStorage.setItem('att_classes', JSON.stringify(classes));
+                        updateUI();
+                    }
+                });
+
+                // Listen ข้อมูลการเช็กชื่อรายวันแบบ Realtime
+                db.ref('schoolAttendance/records').on('value', (snapshot) => {
+                    const val = snapshot.val();
+                    if (val) {
+                        allRecords = val;
+                        localStorage.setItem('att_records', JSON.stringify(allRecords));
+                    } else {
+                        allRecords = {};
+                    }
+                    updateUI();
+                });
+
+            } catch (err) {
+                console.error("Firebase Init Error:", err);
+                alert("เชื่อมต่อ Firebase ไม่สำเร็จ กรุณาตรวจสอบรูปแบบ Config อีกครั้ง");
+            }
         }
 
-        function updateAbsent(id, gender, delta) {
-            const cls = classData.find(c => c.id === id);
+        function saveFirebaseConfig() {
+            let raw = document.getElementById('firebaseConfigInput').value.trim();
+            // รองรับกรณีผู้ใช้ก๊อปปี้มาทั้ง const firebaseConfig = { ... };
+            const firstBrace = raw.indexOf('{');
+            const lastBrace = raw.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1) {
+                raw = raw.substring(firstBrace, lastBrace + 1);
+            }
+            try {
+                // แปลง key ที่ไม่มีเครื่องหมายคำพูดให้เป็น JSON ที่ถูกต้อง
+                const fixedJson = raw.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2": ');
+                const parsed = JSON.parse(fixedJson);
+                if (!parsed.databaseURL) {
+                    alert("ไม่พบ databaseURL ใน Config กรุณาตรวจสอบว่าเปิดใช้งาน Realtime Database แล้วหรือยัง");
+                    return;
+                }
+                localStorage.setItem('att_firebase_config', JSON.stringify(parsed));
+                location.reload(); // รีโหลดเพื่อเริ่มต้นการเชื่อมต่อใหม่
+            } catch (e) {
+                alert("รูปแบบโค้ด Config ไม่ถูกต้อง กรุณาก๊อปปี้เฉพาะส่วน { ... } มาวางครับ");
+            }
+        }
+
+        function disconnectFirebase() {
+            if (confirm("ต้องการยกเลิกการเชื่อมต่อ Firebase และกลับไปใช้โหมดออฟไลน์ใช่หรือไม่?")) {
+                localStorage.removeItem('att_firebase_config');
+                location.reload();
+            }
+        }
+
+        // --- 3. Date & Data Operations ---
+        function onDateChange() {
+            currentDate = datePicker.value;
+            updateThaiDateLabel();
+            updateUI();
+        }
+
+        function updateThaiDateLabel() {
+            if (!currentDate) return;
+            const d = new Date(currentDate + 'T00:00:00');
+            document.getElementById('thaiDateLabel').innerText = d.toLocaleDateString('th-TH', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+        }
+
+        function getDayRecord(dateStr, classId) {
+            if (!allRecords[dateStr] || !allRecords[dateStr][classId]) {
+                return { absentM: 0, absentF: 0 };
+            }
+            return allRecords[dateStr][classId];
+        }
+
+        function updateAbsent(classId, gender, delta) {
+            const cls = classes.find(c => c.id === classId);
             if (!cls) return;
 
-            if (gender === 'M') {
-                const nextVal = cls.absentM + delta;
-                if (nextVal >= 0 && nextVal <= cls.totalM) {
-                    cls.absentM = nextVal;
-                }
-            } else {
-                const nextVal = cls.absentF + delta;
-                if (nextVal >= 0 && nextVal <= cls.totalF) {
-                    cls.absentF = nextVal;
-                }
+            if (!allRecords[currentDate]) allRecords[currentDate] = {};
+            if (!allRecords[currentDate][classId]) {
+                allRecords[currentDate][classId] = { absentM: 0, absentF: 0 };
             }
-            saveData();
+
+            const rec = allRecords[currentDate][classId];
+            if (gender === 'M') {
+                const next = (rec.absentM || 0) + delta;
+                if (next >= 0 && next <= cls.totalM) rec.absentM = next;
+            } else {
+                const next = (rec.absentF || 0) + delta;
+                if (next >= 0 && next <= cls.totalF) rec.absentF = next;
+            }
+
+            // บันทึกลง LocalStorage และ Firebase
+            localStorage.setItem('att_records', JSON.stringify(allRecords));
+            if (isFirebaseConnected && db) {
+                db.ref(`schoolAttendance/records/${currentDate}/${classId}`).set(rec);
+            }
+            updateUI();
         }
 
-        function updateDashboard() {
+        function resetTodayData() {
+            if (!confirm(`ต้องการล้างยอดขาดเรียนของวันที่ ${currentDate} ทั้งหมดเป็น 0 ใช่หรือไม่?`)) return;
+            delete allRecords[currentDate];
+            localStorage.setItem('att_records', JSON.stringify(allRecords));
+            if (isFirebaseConnected && db) {
+                db.ref(`schoolAttendance/records/${currentDate}`).remove();
+            }
+            updateUI();
+        }
+
+        // --- 4. Render UI (Mobile Cards & Desktop Table) ---
+        function updateUI() {
             renderClasses();
-            updateSummaryAndCharts();
+            updateSummary();
+            updateCharts();
         }
 
         function renderClasses() {
             const query = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = classData.filter(c => c.name.toLowerCase().includes(query));
+            const filtered = classes.filter(c => c.name.toLowerCase().includes(query));
 
             const mobileContainer = document.getElementById('mobileCardList');
             const desktopContainer = document.getElementById('desktopTableBody');
@@ -180,18 +382,22 @@
             desktopContainer.innerHTML = '';
 
             filtered.forEach(cls => {
+                const rec = getDayRecord(currentDate, cls.id);
+                const absM = rec.absentM || 0;
+                const absF = rec.absentF || 0;
+
                 const total = cls.totalM + cls.totalF;
-                const presentM = cls.totalM - cls.absentM;
-                const presentF = cls.totalF - cls.absentF;
-                const presentTotal = presentM + presentF;
-                const percent = total > 0 ? ((presentTotal / total) * 100).toFixed(1) : 100;
+                const presM = Math.max(0, cls.totalM - absM);
+                const presF = Math.max(0, cls.totalF - absF);
+                const presTotal = presM + presF;
+                const percent = total > 0 ? ((presTotal / total) * 100).toFixed(1) : 100;
                 const isPass = parseFloat(percent) >= 80;
 
                 const statusBadge = isPass
                     ? `<span class="px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">✓ ดีเยี่ยม</span>`
                     : `<span class="px-2 py-0.5 text-xs font-medium bg-rose-100 text-rose-700 rounded-full">! ต่ำกว่าเกณฑ์</span>`;
 
-                // 1. Mobile Card Layout (ออกแบบให้กดง่ายบนมือถือ ไม่ต้องเลื่อนซ้ายขวา)
+                // Mobile Card View
                 mobileContainer.innerHTML += `
                     <div class="p-4 space-y-3 bg-white">
                         <div class="flex justify-between items-center">
@@ -207,25 +413,23 @@
 
                         <div class="bg-slate-50 p-2.5 rounded-lg flex justify-between items-center text-xs">
                             <span class="text-slate-600">มาเรียนวันนี้:</span>
-                            <span class="font-bold text-emerald-600 text-sm">${presentTotal} คน <span class="font-normal text-slate-500">(ช ${presentM} / ญ ${presentF})</span></span>
+                            <span class="font-bold text-emerald-600 text-sm">${presTotal} คน <span class="font-normal text-slate-500">(ช ${presM} / ญ ${presF})</span></span>
                         </div>
 
                         <div class="grid grid-cols-2 gap-3 pt-1">
-                            <!-- ปุ่มกด ชาย -->
                             <div class="border border-rose-100 bg-rose-50/40 rounded-lg p-2 flex flex-col items-center">
                                 <span class="text-xs text-rose-700 font-medium mb-1.5">ขาด/ลา (ชาย)</span>
                                 <div class="flex items-center gap-3">
                                     <button onclick="updateAbsent('${cls.id}', 'M', -1)" class="btn-touch bg-white border border-slate-300 rounded-lg font-bold text-slate-700 active:bg-slate-200 shadow-sm">-</button>
-                                    <span class="font-bold text-base w-6 text-center text-rose-600">${cls.absentM}</span>
+                                    <span class="font-bold text-base w-6 text-center text-rose-600">${absM}</span>
                                     <button onclick="updateAbsent('${cls.id}', 'M', 1)" class="btn-touch bg-rose-500 text-white rounded-lg font-bold active:bg-rose-600 shadow-sm">+</button>
                                 </div>
                             </div>
-                            <!-- ปุ่มกด หญิง -->
                             <div class="border border-rose-100 bg-rose-50/40 rounded-lg p-2 flex flex-col items-center">
                                 <span class="text-xs text-rose-700 font-medium mb-1.5">ขาด/ลา (หญิง)</span>
                                 <div class="flex items-center gap-3">
                                     <button onclick="updateAbsent('${cls.id}', 'F', -1)" class="btn-touch bg-white border border-slate-300 rounded-lg font-bold text-slate-700 active:bg-slate-200 shadow-sm">-</button>
-                                    <span class="font-bold text-base w-6 text-center text-rose-600">${cls.absentF}</span>
+                                    <span class="font-bold text-base w-6 text-center text-rose-600">${absF}</span>
                                     <button onclick="updateAbsent('${cls.id}', 'F', 1)" class="btn-touch bg-rose-500 text-white rounded-lg font-bold active:bg-rose-600 shadow-sm">+</button>
                                 </div>
                             </div>
@@ -233,23 +437,23 @@
                     </div>
                 `;
 
-                // 2. Desktop Table Layout
+                // Desktop Table View
                 desktopContainer.innerHTML += `
                     <tr class="hover:bg-slate-50/80 transition">
                         <td class="py-3 px-4 font-semibold text-slate-800">${cls.name}</td>
                         <td class="py-3 px-4 text-center text-slate-600">${total} <span class="text-xs text-slate-400">(${cls.totalM}/${cls.totalF})</span></td>
-                        <td class="py-3 px-4 text-center font-semibold text-emerald-600">${presentTotal} <span class="text-xs font-normal text-slate-400">(${presentM}/${presentF})</span></td>
+                        <td class="py-3 px-4 text-center font-semibold text-emerald-600">${presTotal} <span class="text-xs font-normal text-slate-400">(${presM}/${presF})</span></td>
                         <td class="py-3 px-4">
                             <div class="flex items-center justify-center gap-2">
                                 <button onclick="updateAbsent('${cls.id}', 'M', -1)" class="w-7 h-7 rounded bg-slate-100 hover:bg-slate-200 font-bold">-</button>
-                                <span class="w-6 text-center font-bold text-rose-600">${cls.absentM}</span>
+                                <span class="w-6 text-center font-bold text-rose-600">${absM}</span>
                                 <button onclick="updateAbsent('${cls.id}', 'M', 1)" class="w-7 h-7 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold">+</button>
                             </div>
                         </td>
                         <td class="py-3 px-4">
                             <div class="flex items-center justify-center gap-2">
                                 <button onclick="updateAbsent('${cls.id}', 'F', -1)" class="w-7 h-7 rounded bg-slate-100 hover:bg-slate-200 font-bold">-</button>
-                                <span class="w-6 text-center font-bold text-rose-600">${cls.absentF}</span>
+                                <span class="w-6 text-center font-bold text-rose-600">${absF}</span>
                                 <button onclick="updateAbsent('${cls.id}', 'F', 1)" class="w-7 h-7 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold">+</button>
                             </div>
                         </td>
@@ -260,75 +464,48 @@
             });
         }
 
-        function updateSummaryAndCharts() {
+        function updateSummary() {
             let sumTotalM = 0, sumTotalF = 0;
-            let sumAbsentM = 0, sumAbsentF = 0;
+            let sumAbsM = 0, sumAbsF = 0;
 
-            classData.forEach(c => {
-                sumTotalM += c.totalM;
-                sumTotalF += c.totalF;
-                sumAbsentM += c.absentM;
-                sumAbsentF += c.absentF;
+            classes.forEach(cls => {
+                const rec = getDayRecord(currentDate, cls.id);
+                sumTotalM += cls.totalM;
+                sumTotalF += cls.totalF;
+                sumAbsM += (rec.absentM || 0);
+                sumAbsF += (rec.absentF || 0);
             });
 
             const totalAll = sumTotalM + sumTotalF;
-            const absentAll = sumAbsentM + sumAbsentF;
-            const presentM = sumTotalM - sumAbsentM;
-            const presentF = sumTotalF - sumAbsentF;
-            const presentAll = presentM + presentF;
+            const absAll = sumAbsM + sumAbsF;
+            const presM = Math.max(0, sumTotalM - sumAbsM);
+            const presF = Math.max(0, sumTotalF - sumAbsF);
+            const presAll = presM + presF;
 
-            const pctAll = totalAll > 0 ? ((presentAll / totalAll) * 100).toFixed(1) : 100;
-            const pctM = sumTotalM > 0 ? ((presentM / sumTotalM) * 100).toFixed(1) : 100;
-            const pctF = sumTotalF > 0 ? ((presentF / sumTotalF) * 100).toFixed(1) : 100;
+            const pctAll = totalAll > 0 ? ((presAll / totalAll) * 100).toFixed(1) : 100;
+            const pctM = sumTotalM > 0 ? ((presM / sumTotalM) * 100).toFixed(1) : 100;
+            const pctF = sumTotalF > 0 ? ((presF / sumTotalF) * 100).toFixed(1) : 100;
 
             document.getElementById('totalStudents').innerText = totalAll;
             document.getElementById('totalGenderText').innerText = `ชาย ${sumTotalM} | หญิง ${sumTotalF}`;
 
-            document.getElementById('totalPresent').innerText = presentAll;
-            document.getElementById('presentGenderText').innerText = `ชาย ${presentM} | หญิง ${presentF}`;
+            document.getElementById('totalPresent').innerText = presAll;
+            document.getElementById('presentGenderText').innerText = `ชาย ${presM} | หญิง ${presF}`;
 
-            document.getElementById('totalAbsent').innerText = absentAll;
-            document.getElementById('absentGenderText').innerText = `ชาย ${sumAbsentM} | หญิง ${sumAbsentF}`;
+            document.getElementById('totalAbsent').innerText = absAll;
+            document.getElementById('absentGenderText').innerText = `ชาย ${sumAbsM} | หญิง ${sumAbsF}`;
 
             document.getElementById('overallPercent').innerText = `${pctAll}%`;
             document.getElementById('percentGenderText').innerText = `ชาย ${pctM}% | หญิง ${pctF}%`;
 
-            // Update Bar Chart
-            const labels = classData.map(c => c.name);
-            const percents = classData.map(c => {
-                const tot = c.totalM + c.totalF;
-                const pres = tot - (c.absentM + c.absentF);
-                return tot > 0 ? ((pres / tot) * 100).toFixed(1) : 100;
-            });
-
-            if (barChartInstance) barChartInstance.destroy();
-            barChartInstance = new Chart(document.getElementById('barChart'), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: '% การมาเรียน',
-                        data: percents,
-                        backgroundColor: percents.map(p => p >= 80 ? '#10b981' : '#f43f5e'),
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, max: 100 } },
-                    plugins: { legend: { display: false } }
-                }
-            });
-
-            // Update Doughnut Chart
+            // Doughnut Chart
             if (doughnutChartInstance) doughnutChartInstance.destroy();
             doughnutChartInstance = new Chart(document.getElementById('doughnutChart'), {
                 type: 'doughnut',
                 data: {
                     labels: ['มาเรียน (ชาย)', 'มาเรียน (หญิง)', 'ขาด/ลา (รวม)'],
                     datasets: [{
-                        data: [presentM, presentF, absentAll],
+                        data: [presM, presF, absAll],
                         backgroundColor: ['#3b82f6', '#ec4899', '#cbd5e1']
                     }]
                 },
@@ -340,32 +517,174 @@
             });
         }
 
-        function resetData() {
-            if (confirm('ต้องการรีเซ็ตข้อมูลการขาดเรียนวันนี้ทั้งหมดเป็น 0 ใช่หรือไม่?')) {
-                classData.forEach(c => { c.absentM = 0; c.absentF = 0; });
-                saveData();
-            }
+        // --- 5. Historical Charts (Daily / Monthly / Yearly) ---
+        function setChartMode(mode) {
+            chartMode = mode;
+            ['daily', 'monthly', 'yearly'].forEach(m => {
+                const btn = document.getElementById('tab' + m.charAt(0).toUpperCase() + m.slice(1));
+                if (m === mode) {
+                    btn.className = "px-2.5 py-1 rounded-md bg-white text-indigo-600 font-bold shadow-sm";
+                } else {
+                    btn.className = "px-2.5 py-1 rounded-md text-slate-600 font-medium";
+                }
+            });
+            updateCharts();
         }
 
+        function calcDayPercent(dateStr) {
+            let tot = 0, abs = 0;
+            classes.forEach(c => {
+                tot += (c.totalM + c.totalF);
+                const r = getDayRecord(dateStr, c.id);
+                abs += ((r.absentM || 0) + (r.absentF || 0));
+            });
+            return tot > 0 ? parseFloat((((tot - abs) / tot) * 100).toFixed(1)) : 100;
+        }
+
+        function updateCharts() {
+            let labels = [];
+            let values = [];
+
+            if (chartMode === 'daily') {
+                labels = classes.map(c => c.name);
+                values = classes.map(c => {
+                    const tot = c.totalM + c.totalF;
+                    const r = getDayRecord(currentDate, c.id);
+                    const pres = Math.max(0, tot - ((r.absentM || 0) + (r.absentF || 0)));
+                    return tot > 0 ? parseFloat(((pres / tot) * 100).toFixed(1)) : 100;
+                });
+            } else if (chartMode === 'monthly') {
+                const yearMonth = currentDate.slice(0, 7); // YYYY-MM
+                const recordedDates = Object.keys(allRecords).filter(d => d.startsWith(yearMonth)).sort();
+                if (recordedDates.length === 0) {
+                    labels = [currentDate.slice(8, 10) + '/' + currentDate.slice(5, 7)];
+                    values = [calcDayPercent(currentDate)];
+                } else {
+                    labels = recordedDates.map(d => d.slice(8, 10) + '/' + d.slice(5, 7));
+                    values = recordedDates.map(d => calcDayPercent(d));
+                }
+            } else if (chartMode === 'yearly') {
+                const year = currentDate.slice(0, 4);
+                const monthNames = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+                labels = monthNames;
+                values = monthNames.map((_, idx) => {
+                    const mStr = `${year}-${String(idx + 1).padStart(2, '0')}`;
+                    const datesInMonth = Object.keys(allRecords).filter(d => d.startsWith(mStr));
+                    if (datesInMonth.length === 0) return 0;
+                    const sumPct = datesInMonth.reduce((acc, d) => acc + calcDayPercent(d), 0);
+                    return parseFloat((sumPct / datesInMonth.length).toFixed(1));
+                });
+            }
+
+            if (barChartInstance) barChartInstance.destroy();
+            barChartInstance = new Chart(document.getElementById('barChart'), {
+                type: chartMode === 'monthly' ? 'line' : 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '% การมาเรียน',
+                        data: values,
+                        backgroundColor: values.map(v => v >= 80 ? '#10b981' : (v === 0 ? '#e2e8f0' : '#f43f5e')),
+                        borderColor: '#4f46e5',
+                        borderRadius: 6,
+                        tension: 0.3,
+                        fill: chartMode === 'monthly'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, max: 100 } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // --- 6. Modal & Class Management ---
+        function openModal(id) {
+            if (id === 'firebaseModal') {
+                const saved = localStorage.getItem('att_firebase_config');
+                if (saved) document.getElementById('firebaseConfigInput').value = saved;
+            } else if (id === 'classModal') {
+                renderClassEditor();
+            }
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function renderClassEditor() {
+            const list = document.getElementById('classEditorList');
+            list.innerHTML = classes.map((c, idx) => `
+                <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                    <input type="text" value="${c.name}" id="cls_name_${idx}" placeholder="ชื่อห้อง" class="w-1/3 border rounded px-2 py-1 text-xs font-bold">
+                    <div class="flex items-center gap-1 text-xs">
+                        <span>ช:</span>
+                        <input type="number" min="0" value="${c.totalM}" id="cls_m_${idx}" class="w-14 border rounded px-1.5 py-1 text-center">
+                    </div>
+                    <div class="flex items-center gap-1 text-xs">
+                        <span>ญ:</span>
+                        <input type="number" min="0" value="${c.totalF}" id="cls_f_${idx}" class="w-14 border rounded px-1.5 py-1 text-center">
+                    </div>
+                    <button onclick="removeClassRow(${idx})" class="ml-auto text-rose-500 hover:text-rose-700 font-bold px-2">ลบ</button>
+                </div>
+            `).join('');
+        }
+
+        function addNewClassRow() {
+            classes.push({ id: 'c_' + Date.now(), name: 'ห้องใหม่', totalM: 15, totalF: 15 });
+            renderClassEditor();
+        }
+
+        function removeClassRow(idx) {
+            classes.splice(idx, 1);
+            renderClassEditor();
+        }
+
+        function saveClassConfig() {
+            const updated = [];
+            classes.forEach((c, idx) => {
+                const name = document.getElementById(`cls_name_${idx}`).value.trim() || 'ไม่ระบุชื่อ';
+                const totalM = parseInt(document.getElementById(`cls_m_${idx}`).value) || 0;
+                const totalF = parseInt(document.getElementById(`cls_f_${idx}`).value) || 0;
+                updated.push({ id: c.id, name, totalM, totalF });
+            });
+            classes = updated;
+            localStorage.setItem('att_classes', JSON.stringify(classes));
+            if (isFirebaseConnected && db) {
+                db.ref('schoolAttendance/classes').set(classes);
+            }
+            closeModal('classModal');
+            updateUI();
+        }
+
+        // --- 7. Export CSV ---
         function exportCSV() {
-            let csv = '\uFEFFชั้นเรียน,ชายทั้งหมด,หญิงทั้งหมด,รวมทั้งหมด,มาเรียน(ชาย),มาเรียน(หญิง),รวมมาเรียน,ขาด/ลา(ชาย),ขาด/ลา(หญิง),เปอร์เซ็นต์มาเรียน\n';
-            classData.forEach(c => {
+            let csv = `\uFEFFรายงานสถิติการมาเรียน ประจำวันที่ ${currentDate}\n`;
+            csv += 'ชั้นเรียน,ชายทั้งหมด,หญิงทั้งหมด,รวมทั้งหมด,มาเรียน(ชาย),มาเรียน(หญิง),รวมมาเรียน,ขาด/ลา(ชาย),ขาด/ลา(หญิง),เปอร์เซ็นต์มาเรียน\n';
+            classes.forEach(c => {
+                const rec = getDayRecord(currentDate, c.id);
+                const absM = rec.absentM || 0;
+                const absF = rec.absentF || 0;
                 const tot = c.totalM + c.totalF;
-                const presM = c.totalM - c.absentM;
-                const presF = c.totalF - c.absentF;
+                const presM = Math.max(0, c.totalM - absM);
+                const presF = Math.max(0, c.totalF - absF);
                 const presTot = presM + presF;
                 const pct = tot > 0 ? ((presTot / tot) * 100).toFixed(1) : 100;
-                csv += `${c.name},${c.totalM},${c.totalF},${tot},${presM},${presF},${presTot},${c.absentM},${c.absentF},${pct}%\n`;
+                csv += `${c.name},${c.totalM},${c.totalF},${tot},${presM},${presF},${presTot},${absM},${absF},${pct}%\n`;
             });
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `สถิติการมาเรียน_${new Date().toISOString().slice(0,10)}.csv`;
+            link.download = `สถิติการมาเรียน_${currentDate}.csv`;
             link.click();
         }
 
-        // Initial render
-        updateDashboard();
+        // Start App
+        initFirebase();
+        updateUI();
     </script>
 </body>
 </html>
