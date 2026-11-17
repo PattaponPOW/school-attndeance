@@ -172,30 +172,33 @@
         </div>
     </div>
 
-    <!-- Modal 2: จัดการห้องเรียน -->
+    <!-- Modal 2: จัดการห้องเรียน (รองรับการจัดลำดับขึ้น-ลง) -->
     <div id="classModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-xl space-y-4 max-h-[90vh] flex flex-col">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-5 shadow-xl space-y-3 max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-2">
-                <h3 class="font-bold text-lg text-slate-800">⚙️ จัดการรายชื่อห้องและจำนวนนักเรียน</h3>
+                <div>
+                    <h3 class="font-bold text-lg text-slate-800">⚙️ จัดการรายชื่อห้องและจัดลำดับ</h3>
+                    <p class="text-[11px] text-slate-500">กดปุ่ม ▲ หรือ ▼ ด้านซ้ายเพื่อเลื่อนสลับลำดับห้องเรียน</p>
+                </div>
                 <button onclick="closeModal('classModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
             </div>
             
             <div id="classEditorList" class="overflow-y-auto space-y-2 pr-1 flex-1"></div>
 
-            <div class="border-t pt-3 flex justify-between items-center">
+            <div class="border-t pt-3 flex flex-wrap justify-between items-center gap-2">
                 <button onclick="addNewClassRow()" class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-2 rounded-lg font-bold hover:bg-emerald-100">
                     + เพิ่มห้องเรียนใหม่
                 </button>
                 <div class="flex gap-2">
                     <button onclick="closeModal('classModal')" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg">ยกเลิก</button>
-                    <button onclick="saveClassConfig()" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow">บันทึกห้องเรียน</button>
+                    <button onclick="saveClassConfig()" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow">บันทึกลำดับและห้องเรียน</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 1. Default Firebase Config (ฝังค่าเริ่มต้นของโปรเจกต์ให้พร้อมใช้งานทันที) ---
+        // --- 1. Default Firebase Config ---
         const defaultFirebaseConfig = {
             apiKey: "AIzaSyA2ummTZcCVcg5EEl8xWYzWm-KDqP2v7o8",
             authDomain: "attendance-tracking-syst-9786a.firebaseapp.com",
@@ -220,6 +223,7 @@
         ];
 
         let classes = JSON.parse(localStorage.getItem('att_classes')) || defaultClasses;
+        let editableClasses = []; // ใช้เก็บข้อมูลชั่วคราวขณะแก้ไขใน Modal
         let allRecords = JSON.parse(localStorage.getItem('att_records')) || {};
         
         let currentDate = new Date().toISOString().slice(0, 10);
@@ -246,7 +250,6 @@
                 db = firebase.database();
                 isFirebaseConnected = true;
 
-                // เช็กสถานะการเชื่อมต่อจริงกับ Server
                 db.ref('.info/connected').on('value', (snap) => {
                     const statusEl = document.getElementById('connectionStatus');
                     if (snap.val() === true) {
@@ -258,7 +261,6 @@
                     }
                 });
 
-                // Listen ข้อมูลห้องเรียนแบบ Realtime
                 db.ref('schoolAttendance/classes').on('value', (snapshot) => {
                     const val = snapshot.val();
                     if (val && Array.isArray(val)) {
@@ -268,7 +270,6 @@
                     }
                 });
 
-                // Listen ข้อมูลการเช็กชื่อรายวันแบบ Realtime
                 db.ref('schoolAttendance/records').on('value', (snapshot) => {
                     const val = snapshot.val();
                     if (val) {
@@ -295,7 +296,6 @@
                 raw = raw.substring(firstBrace, lastBrace + 1);
             }
             try {
-                // แก้ไข Regex ให้แปลงเฉพาะชื่อ Key ด้านหน้าเครื่องหมาย : (ไม่กระทบ https://)
                 const fixedJson = raw.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
                 const parsed = JSON.parse(fixedJson);
                 if (!parsed.databaseURL) {
@@ -605,13 +605,15 @@
             });
         }
 
-        // --- 7. Modal & Class Management ---
+        // --- 7. Modal & Class Management (พร้อมระบบจัดลำดับขึ้น-ลง) ---
         function openModal(id) {
             if (id === 'firebaseModal') {
                 const saved = localStorage.getItem('att_firebase_config');
                 const currentCfg = saved ? JSON.parse(saved) : defaultFirebaseConfig;
                 document.getElementById('firebaseConfigInput').value = JSON.stringify(currentCfg, null, 2);
             } else if (id === 'classModal') {
+                // คัดลอกข้อมูลมาแก้ไขในตัวแปรชั่วคราว (กดยกเลิกจะไม่กระทบของเดิม)
+                editableClasses = classes.map(c => ({ ...c }));
                 renderClassEditor();
             }
             document.getElementById(id).classList.remove('hidden');
@@ -621,43 +623,93 @@
             document.getElementById(id).classList.add('hidden');
         }
 
+        // เก็บค่าที่ผู้ใช้พิมพ์ในช่อง input ก่อนการเลื่อนขึ้น-ลง / เพิ่ม / ลบ
+        function syncEditorInputs() {
+            editableClasses.forEach((c, idx) => {
+                const nameEl = document.getElementById(`cls_name_${idx}`);
+                const mEl = document.getElementById(`cls_m_${idx}`);
+                const fEl = document.getElementById(`cls_f_${idx}`);
+                if (nameEl) c.name = nameEl.value;
+                if (mEl) c.totalM = parseInt(mEl.value) || 0;
+                if (fEl) c.totalF = parseInt(fEl.value) || 0;
+            });
+        }
+
         function renderClassEditor() {
             const list = document.getElementById('classEditorList');
-            list.innerHTML = classes.map((c, idx) => `
-                <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                    <input type="text" value="${c.name}" id="cls_name_${idx}" placeholder="ชื่อห้อง" class="w-1/3 border rounded px-2 py-1 text-xs font-bold">
+            list.innerHTML = editableClasses.map((c, idx) => `
+                <div class="flex items-center gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                    <!-- ปุ่มเลื่อนขึ้น-ลง -->
+                    <div class="flex flex-col gap-0.5">
+                        <button type="button" onclick="moveClassRow(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} 
+                            class="px-1.5 py-0.5 text-[10px] leading-none rounded bg-white border border-slate-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 disabled:pointer-events-none" title="เลื่อนขึ้น">
+                            ▲
+                        </button>
+                        <button type="button" onclick="moveClassRow(${idx}, 1)" ${idx === editableClasses.length - 1 ? 'disabled' : ''} 
+                            class="px-1.5 py-0.5 text-[10px] leading-none rounded bg-white border border-slate-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 disabled:pointer-events-none" title="เลื่อนลง">
+                            ▼
+                        </button>
+                    </div>
+
+                    <span class="text-[11px] font-bold text-slate-400 w-5 text-center">${idx + 1}.</span>
+
+                    <input type="text" value="${c.name}" id="cls_name_${idx}" placeholder="ชื่อห้อง" 
+                        class="flex-1 min-w-0 border border-slate-300 rounded px-2 py-1.5 text-xs font-bold bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    
                     <div class="flex items-center gap-1 text-xs">
-                        <span>ช:</span>
-                        <input type="number" min="0" value="${c.totalM}" id="cls_m_${idx}" class="w-14 border rounded px-1.5 py-1 text-center">
+                        <span class="text-slate-500">ช:</span>
+                        <input type="number" min="0" value="${c.totalM}" id="cls_m_${idx}" 
+                            class="w-12 border border-slate-300 rounded px-1 py-1.5 text-center bg-white">
                     </div>
                     <div class="flex items-center gap-1 text-xs">
-                        <span>ญ:</span>
-                        <input type="number" min="0" value="${c.totalF}" id="cls_f_${idx}" class="w-14 border rounded px-1.5 py-1 text-center">
+                        <span class="text-slate-500">ญ:</span>
+                        <input type="number" min="0" value="${c.totalF}" id="cls_f_${idx}" 
+                            class="w-12 border border-slate-300 rounded px-1 py-1.5 text-center bg-white">
                     </div>
-                    <button onclick="removeClassRow(${idx})" class="ml-auto text-rose-500 hover:text-rose-700 font-bold px-2">ลบ</button>
+
+                    <button type="button" onclick="removeClassRow(${idx})" class="text-rose-500 hover:bg-rose-100 rounded px-2 py-1 text-xs font-bold" title="ลบห้องนี้">
+                        ลบ
+                    </button>
                 </div>
             `).join('');
         }
 
-        function addNewClassRow() {
-            classes.push({ id: 'c_' + Date.now(), name: 'ห้องใหม่', totalM: 15, totalF: 15 });
+        function moveClassRow(idx, direction) {
+            syncEditorInputs();
+            const targetIdx = idx + direction;
+            if (targetIdx < 0 || targetIdx >= editableClasses.length) return;
+            
+            const temp = editableClasses[idx];
+            editableClasses[idx] = editableClasses[targetIdx];
+            editableClasses[targetIdx] = temp;
+            
             renderClassEditor();
         }
 
+        function addNewClassRow() {
+            syncEditorInputs();
+            editableClasses.push({ id: 'c_' + Date.now(), name: 'ห้องใหม่', totalM: 15, totalF: 15 });
+            renderClassEditor();
+            // เลื่อน Scrollbar ลงล่างสุดอัตโนมัติเพื่อเห็นห้องที่เพิ่งเพิ่ม
+            const list = document.getElementById('classEditorList');
+            list.scrollTop = list.scrollHeight;
+        }
+
         function removeClassRow(idx) {
-            classes.splice(idx, 1);
+            syncEditorInputs();
+            editableClasses.splice(idx, 1);
             renderClassEditor();
         }
 
         function saveClassConfig() {
-            const updated = [];
-            classes.forEach((c, idx) => {
-                const name = document.getElementById(`cls_name_${idx}`).value.trim() || 'ไม่ระบุชื่อ';
-                const totalM = parseInt(document.getElementById(`cls_m_${idx}`).value) || 0;
-                const totalF = parseInt(document.getElementById(`cls_f_${idx}`).value) || 0;
-                updated.push({ id: c.id, name, totalM, totalF });
-            });
-            classes = updated;
+            syncEditorInputs();
+            classes = editableClasses.map(c => ({
+                id: c.id,
+                name: c.name.trim() || 'ไม่ระบุชื่อ',
+                totalM: Math.max(0, parseInt(c.totalM) || 0),
+                totalF: Math.max(0, parseInt(c.totalF) || 0)
+            }));
+
             localStorage.setItem('att_classes', JSON.stringify(classes));
             if (isFirebaseConnected && db) {
                 db.ref('schoolAttendance/classes').set(classes);
