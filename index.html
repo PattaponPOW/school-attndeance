@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบบันทึกสถิติการมาเรียนออนไลน์</title>
+    <title>ระบบบันทึกสถิติการมาเรียนและปฏิบัติงานครูเวร</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -15,16 +15,65 @@
     <style>
         body { font-family: 'Sarabun', sans-serif; }
         .btn-touch { min-width: 38px; min-height: 38px; }
+
+        /* เส้นประสำหรับเติมคำในหน้าพิมพ์ */
+        .dotted-fill {
+            display: inline-block;
+            border-bottom: 1px dotted #1e293b;
+            padding: 0 6px;
+            min-height: 18px;
+            line-height: 1.25;
+            vertical-align: baseline;
+        }
+
+        /* ตั้งค่าสำหรับการพิมพ์เอกสาร A4 ให้พอดี 1 หน้า */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 10mm 13mm;
+            }
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+                padding: 0 !important;
+                font-size: 11.5pt;
+                line-height: 1.45;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            table.print-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 10.5pt;
+                margin: 6px 0 8px 0;
+            }
+            table.print-table th,
+            table.print-table td {
+                border: 1px solid #000000;
+                padding: 3px 4px;
+                text-align: center;
+            }
+            table.print-table th {
+                background-color: #f8fafc !important;
+                font-weight: 700;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 pb-14">
 
-    <!-- Header -->
-    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-30">
+    <!-- Header (ซ่อนตอนพิมพ์) -->
+    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-30 no-print">
         <div class="max-w-6xl mx-auto px-3 md:px-4 py-3 flex flex-wrap justify-between items-center gap-2">
             <div>
                 <h1 class="text-base md:text-xl font-bold flex items-center gap-2">
-                    📊 ระบบบันทึกสถิติการมาเรียน
+                    📊 ระบบบันทึกสถิติการมาเรียนและครูเวร
                 </h1>
                 <div class="flex items-center gap-2 mt-0.5">
                     <span id="connectionStatus" class="inline-flex items-center gap-1 text-[11px] bg-indigo-800/70 px-2 py-0.5 rounded-full text-amber-300">
@@ -34,8 +83,8 @@
             </div>
             
             <div class="flex flex-wrap gap-1.5 md:gap-2">
-                <button onclick="openModal('firebaseModal')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium px-2.5 py-2 rounded-lg shadow transition">
-                    🔥 ตั้งค่า Firebase
+                <button onclick="printReport()" class="bg-white text-indigo-700 hover:bg-indigo-50 text-xs font-bold px-3 py-2 rounded-lg shadow transition flex items-center gap-1">
+                    🖨️ พิมพ์ใบรายงานครูเวร
                 </button>
                 <button onclick="openModal('classModal')" class="bg-sky-500 hover:bg-sky-600 text-white text-xs font-medium px-2.5 py-2 rounded-lg shadow transition">
                     ⚙️ จัดการห้องเรียน
@@ -47,24 +96,106 @@
         </div>
     </header>
 
-    <main class="max-w-6xl mx-auto px-3 md:px-4 mt-4 space-y-5">
+    <!-- ส่วนแสดงผลบนหน้าจอปกติ (ซ่อนตอนพิมพ์) -->
+    <main class="max-w-6xl mx-auto px-3 md:px-4 mt-4 space-y-5 no-print">
 
-        <!-- Date Picker & Quick Actions Bar -->
-        <section class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
-            <div class="flex items-center justify-between sm:justify-start gap-2">
-                <label for="datePicker" class="text-sm font-bold text-slate-700 whitespace-nowrap">📅 วันที่บันทึก:</label>
-                <input type="date" id="datePicker" onchange="onDateChange()" 
-                    class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50/40 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <!-- Date Picker & Duty Teacher Form -->
+        <section class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 border-b border-slate-100 pb-3">
+                <div class="flex items-center justify-between sm:justify-start gap-2">
+                    <label for="datePicker" class="text-sm font-bold text-slate-700 whitespace-nowrap">📅 วันที่บันทึก:</label>
+                    <input type="date" id="datePicker" onchange="onDateChange()" 
+                        class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50/40 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex items-center justify-between sm:justify-end gap-2">
+                    <span id="thaiDateLabel" class="text-xs font-medium text-slate-600"></span>
+                    <button onclick="resetTodayData()" class="text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg font-medium transition">
+                        ล้างยอดวันนี้เป็น 0
+                    </button>
+                </div>
             </div>
-            <div class="flex items-center justify-between sm:justify-end gap-2">
-                <span id="thaiDateLabel" class="text-xs text-slate-500"></span>
-                <button onclick="resetTodayData()" class="text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg font-medium transition">
-                    ล้างยอดวันนี้เป็น 0
-                </button>
+
+            <!-- แบบกรอกข้อมูลบันทึกการปฏิบัติงานครูเวรประจำวัน -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-sm font-bold text-indigo-900">📋 บันทึกการปฏิบัติงานครูเวรประจำวัน (สำหรับพิมพ์ใบรายงาน)</h2>
+                    <span class="text-[11px] text-emerald-600 font-medium">✓ บันทึกอัตโนมัติ</span>
+                </div>
+
+                <!-- แถวที่ 1: หัวหน้าเวร + เวลาปฏิบัติงาน -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-slate-700 mb-1">ข้าพเจ้า (หัวหน้าเวรประจำวัน)</label>
+                        <input type="text" id="headTeacherInput" oninput="saveDailyMeta()" placeholder="เช่น นางประนอม ดุจานุทัศน์" 
+                            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">ตั้งแต่เวลา</label>
+                        <input type="text" id="startTimeInput" oninput="saveDailyMeta()" placeholder="07.00" 
+                            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">ถึงเวลา</label>
+                        <input type="text" id="endTimeInput" oninput="saveDailyMeta()" placeholder="16.30" 
+                            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <!-- แถวที่ 2: ครูเวรร่วมปฏิบัติหน้าที่ 1-4 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">พร้อมด้วย 1. (ครูเวร)</label>
+                        <input type="text" id="coTeacher1Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 1" 
+                            class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">2. (ครูเวร)</label>
+                        <input type="text" id="coTeacher2Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 2" 
+                            class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">3. (ครูเวร)</label>
+                        <input type="text" id="coTeacher3Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 3" 
+                            class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">4. (ครูเวร)</label>
+                        <input type="text" id="coTeacher4Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 4" 
+                            class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <!-- แถวที่ 3: ผลตรวจสภาพทั่วไป + รับนักเรียนหน้าประตู -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">ได้ตรวจดูสภาพทั่วไปของโรงเรียนปรากฏว่า</label>
+                        <input type="text" id="generalConditionInput" oninput="saveDailyMeta()" placeholder="ปกติ" 
+                            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">ได้ยืนหน้าประตูโรงเรียนเพื่อรับนักเรียนเข้าสู่โรงเรียนผลปรากฏว่า</label>
+                        <input type="text" id="gateConditionInput" oninput="saveDailyMeta()" placeholder="ปกติ" 
+                            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <!-- แถวที่ 4: เรื่องที่อบรมหน้าเสาธง + เหตุการณ์สำหรับวันนี้ -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">อบรมนักเรียนหน้าเสาธง (เวลา 08.00 น.) เรื่อง</label>
+                        <input type="text" id="morningTopicInput" oninput="saveDailyMeta()" placeholder="เช่น การนิเทศการอ่านของ สพป., การมีสมาธิในการรับฟัง..." 
+                            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">เหตุการณ์สำหรับวันนี้</label>
+                        <input type="text" id="dailyNoteInput" oninput="saveDailyMeta()" placeholder="เหตุการณ์โดยทั่วไปปกติ" 
+                            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
             </div>
         </section>
 
-        <!-- Summary Cards (2x2 on Mobile, 4 cols on Desktop) -->
+        <!-- Summary Cards -->
         <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="bg-white p-3.5 rounded-xl shadow-sm border border-slate-100">
                 <p class="text-xs text-slate-500">นักเรียนทั้งหมด (คน)</p>
@@ -79,14 +210,14 @@
             </div>
 
             <div class="bg-white p-3.5 rounded-xl shadow-sm border border-rose-100">
-                <p class="text-xs text-rose-600 font-medium">ขาด / ลา / ป่วย (คน)</p>
+                <p class="text-xs text-rose-600 font-medium">ไม่มาเรียน / ขาด / ลา (คน)</p>
                 <p class="text-2xl font-bold text-rose-600 mt-1" id="totalAbsent">0</p>
                 <p class="text-[11px] text-slate-400 mt-0.5" id="absentGenderText">ชาย 0 | หญิง 0</p>
             </div>
 
             <div class="bg-white p-3.5 rounded-xl shadow-sm border border-indigo-100">
-                <p class="text-xs text-indigo-600 font-medium">เปอร์เซ็นต์มาเรียนรวม</p>
-                <p class="text-2xl font-bold text-indigo-600 mt-1" id="overallPercent">100.0%</p>
+                <p class="text-xs text-indigo-600 font-medium">ร้อยละมาเรียนรวม</p>
+                <p class="text-2xl font-bold text-indigo-600 mt-1" id="overallPercent">100%</p>
                 <p class="text-[11px] text-slate-400 mt-0.5" id="percentGenderText">ชาย 100% | หญิง 100%</p>
             </div>
         </section>
@@ -95,8 +226,8 @@
         <section class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
             <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h2 class="font-bold text-slate-800 text-base">📝 บันทึกการขาดเรียนรายห้อง</h2>
-                    <p class="text-xs text-slate-500">กดปุ่ม <span class="font-bold text-rose-600">+</span> หรือ <span class="font-bold">-</span> เฉพาะนักเรียนที่ <span class="text-rose-600 font-semibold">ขาด/ลา/ป่วย</span> (บันทึกอัตโนมัติตามวันที่เลือก)</p>
+                    <h2 class="font-bold text-slate-800 text-base">📝 บันทึกนักเรียนที่ไม่มาเรียนรายห้อง</h2>
+                    <p class="text-xs text-slate-500">กดปุ่ม <span class="font-bold text-rose-600">+</span> หรือ <span class="font-bold">-</span> เฉพาะนักเรียนที่ <span class="text-rose-600 font-semibold">ไม่มาเรียน (ขาด/ลา/ป่วย)</span></p>
                 </div>
                 <input type="text" id="searchInput" onkeyup="renderClasses()" placeholder="🔍 ค้นหาชั้นเรียน..." 
                     class="text-sm border border-slate-200 rounded-lg px-3 py-2 w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -113,9 +244,9 @@
                             <th class="py-3 px-4">ชั้นเรียน</th>
                             <th class="py-3 px-4 text-center">ทั้งหมด<br><span class="text-[10px] font-normal">(ช / ญ)</span></th>
                             <th class="py-3 px-4 text-center text-emerald-700">มาเรียน<br><span class="text-[10px] font-normal">(ช / ญ)</span></th>
-                            <th class="py-3 px-4 text-center text-rose-600">ขาด / ลา / ป่วย (ชาย)</th>
-                            <th class="py-3 px-4 text-center text-rose-600">ขาด / ลา / ป่วย (หญิง)</th>
-                            <th class="py-3 px-4 text-center">% มาเรียน</th>
+                            <th class="py-3 px-4 text-center text-rose-600">ไม่มาเรียน (ชาย)</th>
+                            <th class="py-3 px-4 text-center text-rose-600">ไม่มาเรียน (หญิง)</th>
+                            <th class="py-3 px-4 text-center">ร้อยละมาเรียน</th>
                             <th class="py-3 px-4 text-center">สถานะ</th>
                         </tr>
                     </thead>
@@ -150,37 +281,181 @@
 
     </main>
 
-    <!-- Modal 1: ตั้งค่า Firebase -->
-    <div id="firebaseModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-xl space-y-4">
-            <div class="flex justify-between items-center border-b pb-2">
-                <h3 class="font-bold text-lg text-slate-800">🔥 เชื่อมต่อ Firebase Realtime Database</h3>
-                <button onclick="closeModal('firebaseModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+    <!-- ===================================================================== -->
+    <!-- แบบฟอร์มสำหรับพิมพ์ลงกระดาษ A4 (ถอดแบบจากใบรายงานครูเวรต้นฉบับทุกบรรทัด) -->
+    <!-- ===================================================================== -->
+    <div id="printArea" class="hidden print-only w-full text-black">
+        <!-- หัวกระดาษ -->
+        <div class="text-center mb-2">
+            <div class="font-bold text-base" id="printHeaderTitle">บันทึกการปฏิบัติงานครูเวรประจำวัน</div>
+            <div class="text-sm" id="printHeaderDate">ประจำวันที่ ...</div>
+        </div>
+
+        <!-- รายชื่อผู้ปฏิบัติงาน -->
+        <div class="space-y-1 text-[11.5pt]">
+            <div class="flex items-baseline">
+                <span class="whitespace-nowrap">ข้าพเจ้า</span>
+                <span id="p_headTeacher" class="dotted-fill flex-1 text-center font-medium"></span>
+                <span class="whitespace-nowrap ml-2">พร้อมด้วย 1.</span>
+                <span id="p_coTeacher1" class="dotted-fill flex-1 text-center font-medium"></span>
             </div>
-            <p class="text-xs text-slate-600 leading-relaxed">
-                ระบบเชื่อมต่อกับฐานข้อมูลของคุณไว้ให้เรียบร้อยแล้ว หากต้องการเปลี่ยนโปรเจกต์ใหม่ สามารถนำโค้ด <b>firebaseConfig</b> (ส่วนในปีกกา <code>{ ... }</code>) มาวางทับด้านล่างได้ครับ:
-            </p>
-            <textarea id="firebaseConfigInput" rows="7" class="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-            
-            <div class="flex justify-between items-center pt-2">
-                <button onclick="disconnectFirebase()" class="text-xs text-rose-600 hover:underline">รีเซ็ตการเชื่อมต่อ</button>
-                <div class="flex gap-2">
-                    <button onclick="closeModal('firebaseModal')" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg">ปิด</button>
-                    <button onclick="saveFirebaseConfig()" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow">บันทึกและเชื่อมต่อ</button>
-                </div>
+
+            <div class="flex items-baseline">
+                <span class="whitespace-nowrap">2.</span>
+                <span id="p_coTeacher2" class="dotted-fill flex-1 text-center font-medium"></span>
+                <span class="whitespace-nowrap ml-2">3.</span>
+                <span id="p_coTeacher3" class="dotted-fill flex-1 text-center font-medium"></span>
+                <span class="whitespace-nowrap ml-2">4.</span>
+                <span id="p_coTeacher4" class="dotted-fill flex-1 text-center font-medium"></span>
+            </div>
+
+            <div class="flex items-baseline pl-6">
+                <span class="whitespace-nowrap">ได้มาปฏิบัติงานครูเวรประจำวันตั้งแต่เวลา</span>
+                <span id="p_startTime" class="dotted-fill w-20 text-center font-medium">07.00</span>
+                <span class="whitespace-nowrap">ถึงเวลา</span>
+                <span id="p_endTime" class="dotted-fill w-20 text-center font-medium">16.30</span>
+                <span class="whitespace-nowrap ml-1">ซึ่งมี</span>
+            </div>
+
+            <div>รายละเอียดในการปฏิบัติงานดังนี้</div>
+
+            <div class="flex items-baseline pl-4">
+                <span class="whitespace-nowrap mr-2">-</span>
+                <span class="whitespace-nowrap">ได้ตรวจดูสภาพทั่วไปของโรงเรียนปรากฏว่า</span>
+                <span id="p_generalCondition" class="dotted-fill flex-1 text-center font-medium">ปกติ</span>
+            </div>
+
+            <div class="flex items-baseline pl-4">
+                <span class="whitespace-nowrap mr-2">-</span>
+                <span class="whitespace-nowrap">ได้ยืนหน้าประตูโรงเรียนเพื่อรับนักเรียนเข้าสู่โรงเรียนผลปรากฏว่า</span>
+                <span id="p_gateCondition" class="dotted-fill flex-1 text-center font-medium">ปกติ</span>
+            </div>
+
+            <div class="flex items-baseline pl-4">
+                <span class="whitespace-nowrap mr-2">-</span>
+                <span>เวลา 08.00 น. ได้ให้สัญญาณเข้าแถวหน้าเสาธง เคารพธงชาติ สวดมนต์ ไหว้พระ ปฏิบัติกิจกรรม อบรมนักเรียน วันนี้</span>
+            </div>
+
+            <div class="pl-7">อบรมนักเรียน</div>
+
+            <div class="flex items-baseline pl-7">
+                <span class="whitespace-nowrap">เรื่อง</span>
+                <span id="p_morningTopic" class="dotted-fill flex-1 px-3 font-medium"></span>
+            </div>
+        </div>
+
+        <!-- ตารางสถิตินักเรียนที่มาเรียนในวันนี้ -->
+        <div class="text-center font-bold underline text-[12pt] mt-2.5 mb-1">
+            สถิตินักเรียนที่มาเรียนในวันนี้
+        </div>
+
+        <table class="print-table">
+            <thead>
+                <tr>
+                    <th rowspan="2" class="w-24">ชั้นเรียน</th>
+                    <th colspan="3">นักเรียนทั้งหมด</th>
+                    <th colspan="3">มาเรียน</th>
+                    <th colspan="3">ไม่มาเรียน</th>
+                    <th class="w-16">มาเรียน</th>
+                </tr>
+                <tr>
+                    <th class="w-12">ช</th>
+                    <th class="w-12">ญ</th>
+                    <th class="w-14">รวม</th>
+                    <th class="w-12">ช</th>
+                    <th class="w-12">ญ</th>
+                    <th class="w-14">รวม</th>
+                    <th class="w-12">ช</th>
+                    <th class="w-12">ญ</th>
+                    <th class="w-14">รวม</th>
+                    <th>ร้อยละ</th>
+                </tr>
+            </thead>
+            <tbody id="printTableBody"></tbody>
+            <tfoot id="printTableFoot" class="font-bold"></tfoot>
+        </table>
+
+        <!-- ข้อความปฏิบัติงานช่วงกลางวัน-เลิกเรียน และเหตุการณ์สำหรับวันนี้ -->
+        <div class="space-y-1 text-[11.5pt] mt-2">
+            <div class="flex items-baseline pl-4">
+                <span class="whitespace-nowrap mr-2">-</span>
+                <span>เวลา 11.30 น. ให้สัญญาณพักรับประทานอาหารกลางวัน</span>
+            </div>
+            <div class="flex items-baseline pl-4">
+                <span class="whitespace-nowrap mr-2">-</span>
+                <span>เวลา 12.30 น. ให้สัญญาณทำความสะอาดเขตรับผิดชอบ แปรงฟัน และเข้าห้องเรียน</span>
+            </div>
+            <div class="flex items-baseline pl-4">
+                <span class="whitespace-nowrap mr-2">-</span>
+                <span>เวลา 15.30 น. ให้สัญญาณเลิกเรียน เข้าแถว สวดมนต์ไหว้พระประจำวัน อบรมหน้าเสาธง ปล่อยนักเรียนเดินทางกลับบ้าน</span>
+            </div>
+            <div class="flex items-baseline pl-7 pt-0.5">
+                <span class="whitespace-nowrap">เหตุการณ์สำหรับวันนี้</span>
+                <span id="p_dailyNote" class="dotted-fill flex-1 text-center font-medium">เหตุการณ์โดยทั่วไปปกติ</span>
+            </div>
+        </div>
+
+        <!-- ส่วนลงนาม 3 คอลัมน์ 2 แถว เหมือนต้นฉบับ -->
+        <div class="grid grid-cols-3 gap-3 mt-7 text-[10.5pt] text-center">
+            <!-- แถวที่ 1 -->
+            <div class="space-y-0.5">
+                <div>(ลงชื่อ)........................................</div>
+                <div id="p_signHead" class="text-[9.5pt]"></div>
+                <div>หัวหน้าเวรประจำวัน</div>
+            </div>
+            <div class="space-y-0.5">
+                <div>(ลงชื่อ)........................................</div>
+                <div id="p_signCo1" class="text-[9.5pt]"></div>
+                <div>ครูเวรประจำวัน</div>
+            </div>
+            <div class="space-y-0.5">
+                <div>(ลงชื่อ)........................................</div>
+                <div id="p_signCo2" class="text-[9.5pt]"></div>
+                <div>ครูเวรประจำวัน</div>
+            </div>
+
+            <!-- แถวที่ 2 -->
+            <div class="space-y-0.5 mt-3">
+                <div>(ลงชื่อ)........................................</div>
+                <div id="p_signCo3" class="text-[9.5pt]"></div>
+                <div>ครูเวรประจำวัน</div>
+            </div>
+            <div class="space-y-0.5 mt-3">
+                <div>(ลงชื่อ)........................................</div>
+                <div id="p_signCo4" class="text-[9.5pt]"></div>
+                <div>ครูเวรประจำวัน</div>
+            </div>
+            <div class="space-y-0.5 mt-3">
+                <div>(ลงชื่อ)........................................</div>
+                <div id="p_signDirector" class="text-[9.5pt]"></div>
+                <div>ผู้อำนวยการโรงเรียน</div>
             </div>
         </div>
     </div>
 
-    <!-- Modal 2: จัดการห้องเรียน (รองรับการจัดลำดับขึ้น-ลง) -->
-    <div id="classModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <!-- Modal: จัดการห้องเรียน + ตั้งค่าหัวรายงานการพิมพ์ -->
+    <div id="classModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 no-print">
         <div class="bg-white rounded-2xl max-w-xl w-full p-5 shadow-xl space-y-3 max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-2">
                 <div>
-                    <h3 class="font-bold text-lg text-slate-800">⚙️ จัดการรายชื่อห้องและจัดลำดับ</h3>
-                    <p class="text-[11px] text-slate-500">กดปุ่ม ▲ หรือ ▼ ด้านซ้ายเพื่อเลื่อนสลับลำดับห้องเรียน</p>
+                    <h3 class="font-bold text-lg text-slate-800">⚙️ จัดการห้องเรียนและข้อมูลโรงเรียน</h3>
+                    <p class="text-[11px] text-slate-500">กดปุ่ม ▲ หรือ ▼ เพื่อจัดลำดับห้องเรียน</p>
                 </div>
                 <button onclick="closeModal('classModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+            </div>
+
+            <!-- ตั้งค่าชื่อโรงเรียนและผู้อำนวยการสำหรับใบพิมพ์ -->
+            <div class="bg-indigo-50/60 p-3 rounded-xl border border-indigo-100 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                    <label class="block text-[11px] font-bold text-indigo-900 mb-1">🏫 ชื่อโรงเรียน (แสดงหัวใบพิมพ์)</label>
+                    <input type="text" id="schoolNameInput" placeholder="เช่น โรงเรียนบ้านพัฒนาสามัคคี" 
+                        class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-indigo-900 mb-1">👤 ชื่อผู้อำนวยการโรงเรียน (ใต้ลายเซ็น)</label>
+                    <input type="text" id="directorNameInput" placeholder="เช่น นายวิชัย รักเรียน" 
+                        class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                </div>
             </div>
             
             <div id="classEditorList" class="overflow-y-auto space-y-2 pr-1 flex-1"></div>
@@ -191,15 +466,15 @@
                 </button>
                 <div class="flex gap-2">
                     <button onclick="closeModal('classModal')" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg">ยกเลิก</button>
-                    <button onclick="saveClassConfig()" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow">บันทึกลำดับและห้องเรียน</button>
+                    <button onclick="saveClassConfig()" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow">บันทึกข้อมูลทั้งหมด</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 1. Default Firebase Config ---
-        const defaultFirebaseConfig = {
+        // --- 1. Firebase Config ---
+        const firebaseConfig = {
             apiKey: "AIzaSyA2ummTZcCVcg5EEl8xWYzWm-KDqP2v7o8",
             authDomain: "attendance-tracking-syst-9786a.firebaseapp.com",
             databaseURL: "https://attendance-tracking-syst-9786a-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -212,19 +487,23 @@
 
         // --- 2. State & Initial Data ---
         const defaultClasses = [
-            { id: 'k1', name: 'อนุบาล 1', totalM: 12, totalF: 10 },
-            { id: 'k2', name: 'อนุบาล 2', totalM: 14, totalF: 13 },
-            { id: 'p1', name: 'ป.1', totalM: 18, totalF: 16 },
-            { id: 'p2', name: 'ป.2', totalM: 15, totalF: 17 },
-            { id: 'p3', name: 'ป.3', totalM: 19, totalF: 15 },
-            { id: 'p4', name: 'ป.4', totalM: 16, totalF: 18 },
-            { id: 'p5', name: 'ป.5', totalM: 20, totalF: 17 },
-            { id: 'p6', name: 'ป.6', totalM: 17, totalF: 19 }
+            { id: 'k2', name: 'อนุบาล 2', totalM: 10, totalF: 16 },
+            { id: 'k3', name: 'อนุบาล 3', totalM: 15, totalF: 13 },
+            { id: 'p1', name: 'ป.1', totalM: 7, totalF: 14 },
+            { id: 'p2', name: 'ป.2', totalM: 9, totalF: 13 },
+            { id: 'p3_1', name: 'ป.3/1', totalM: 10, totalF: 10 },
+            { id: 'p3_2', name: 'ป.3/2', totalM: 8, totalF: 11 },
+            { id: 'p4', name: 'ป.4', totalM: 14, totalF: 9 },
+            { id: 'p5_1', name: 'ป.5/1', totalM: 6, totalF: 13 },
+            { id: 'p5_2', name: 'ป.5/2', totalM: 9, totalF: 11 },
+            { id: 'p6', name: 'ป.6', totalM: 10, totalF: 15 }
         ];
 
         let classes = JSON.parse(localStorage.getItem('att_classes')) || defaultClasses;
-        let editableClasses = []; // ใช้เก็บข้อมูลชั่วคราวขณะแก้ไขใน Modal
+        let editableClasses = [];
         let allRecords = JSON.parse(localStorage.getItem('att_records')) || {};
+        let dailyMeta = JSON.parse(localStorage.getItem('att_daily_meta')) || {};
+        let schoolInfo = JSON.parse(localStorage.getItem('att_school_info')) || { schoolName: '', directorName: '' };
         
         let currentDate = new Date().toISOString().slice(0, 10);
         let chartMode = 'daily';
@@ -240,12 +519,9 @@
 
         // --- 3. Firebase Connection Logic ---
         function initFirebase() {
-            const savedConfigStr = localStorage.getItem('att_firebase_config');
-            const config = savedConfigStr ? JSON.parse(savedConfigStr) : defaultFirebaseConfig;
-
             try {
                 if (!firebase.apps.length) {
-                    firebase.initializeApp(config);
+                    firebase.initializeApp(firebaseConfig);
                 }
                 db = firebase.database();
                 isFirebaseConnected = true;
@@ -272,63 +548,93 @@
 
                 db.ref('schoolAttendance/records').on('value', (snapshot) => {
                     const val = snapshot.val();
-                    if (val) {
-                        allRecords = val;
-                        localStorage.setItem('att_records', JSON.stringify(allRecords));
-                    } else {
-                        allRecords = {};
-                    }
+                    allRecords = val || {};
+                    localStorage.setItem('att_records', JSON.stringify(allRecords));
                     updateUI();
+                });
+
+                db.ref('schoolAttendance/dailyMeta').on('value', (snapshot) => {
+                    const val = snapshot.val();
+                    dailyMeta = val || {};
+                    localStorage.setItem('att_daily_meta', JSON.stringify(dailyMeta));
+                    loadDailyMetaInputs();
+                });
+
+                db.ref('schoolAttendance/schoolInfo').on('value', (snapshot) => {
+                    const val = snapshot.val();
+                    if (val) {
+                        schoolInfo = val;
+                        localStorage.setItem('att_school_info', JSON.stringify(schoolInfo));
+                    }
                 });
 
             } catch (err) {
                 console.error("Firebase Init Error:", err);
-                const statusEl = document.getElementById('connectionStatus');
-                statusEl.innerHTML = "● เชื่อมต่อ Firebase ไม่สำเร็จ";
+                document.getElementById('connectionStatus').innerHTML = "● โหมดออฟไลน์";
             }
         }
 
-        function saveFirebaseConfig() {
-            let raw = document.getElementById('firebaseConfigInput').value.trim();
-            const firstBrace = raw.indexOf('{');
-            const lastBrace = raw.lastIndexOf('}');
-            if (firstBrace !== -1 && lastBrace !== -1) {
-                raw = raw.substring(firstBrace, lastBrace + 1);
-            }
-            try {
-                const fixedJson = raw.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
-                const parsed = JSON.parse(fixedJson);
-                if (!parsed.databaseURL) {
-                    alert("ไม่พบ databaseURL ใน Config กรุณาตรวจสอบว่าเปิดใช้งาน Realtime Database แล้วหรือยัง");
-                    return;
-                }
-                localStorage.setItem('att_firebase_config', JSON.stringify(parsed));
-                location.reload();
-            } catch (e) {
-                alert("รูปแบบโค้ด Config ไม่ถูกต้อง กรุณาก๊อปปี้เฉพาะส่วน { ... } มาวางครับ");
-            }
-        }
-
-        function disconnectFirebase() {
-            if (confirm("ต้องการรีเซ็ตกลับไปใช้การเชื่อมต่อเริ่มต้นใช่หรือไม่?")) {
-                localStorage.removeItem('att_firebase_config');
-                location.reload();
-            }
-        }
-
-        // --- 4. Date & Data Operations ---
+        // --- 4. Date, Duty Teacher & Data Operations ---
         function onDateChange() {
             currentDate = datePicker.value;
             updateThaiDateLabel();
+            loadDailyMetaInputs();
             updateUI();
         }
 
-        function updateThaiDateLabel() {
-            if (!currentDate) return;
-            const d = new Date(currentDate + 'T00:00:00');
-            document.getElementById('thaiDateLabel').innerText = d.toLocaleDateString('th-TH', {
+        function getFormattedThaiDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('th-TH', {
                 weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
             });
+        }
+
+        function updateThaiDateLabel() {
+            document.getElementById('thaiDateLabel').innerText = getFormattedThaiDate(currentDate);
+        }
+
+        function loadDailyMetaInputs() {
+            const meta = dailyMeta[currentDate] || {};
+            document.getElementById('headTeacherInput').value = meta.headTeacher || meta.teacher || '';
+            document.getElementById('coTeacher1Input').value = meta.coTeacher1 || '';
+            document.getElementById('coTeacher2Input').value = meta.coTeacher2 || '';
+            document.getElementById('coTeacher3Input').value = meta.coTeacher3 || '';
+            document.getElementById('coTeacher4Input').value = meta.coTeacher4 || '';
+            document.getElementById('startTimeInput').value = meta.startTime !== undefined ? meta.startTime : '07.00';
+            document.getElementById('endTimeInput').value = meta.endTime !== undefined ? meta.endTime : '16.30';
+            document.getElementById('generalConditionInput').value = meta.generalCondition !== undefined ? meta.generalCondition : 'ปกติ';
+            document.getElementById('gateConditionInput').value = meta.gateCondition !== undefined ? meta.gateCondition : 'ปกติ';
+            document.getElementById('morningTopicInput').value = meta.morningTopic || '';
+            document.getElementById('dailyNoteInput').value = meta.note !== undefined ? meta.note : 'เหตุการณ์โดยทั่วไปปกติ';
+        }
+
+        let saveMetaTimer = null;
+        function saveDailyMeta() {
+            const payload = {
+                headTeacher: document.getElementById('headTeacherInput').value,
+                coTeacher1: document.getElementById('coTeacher1Input').value,
+                coTeacher2: document.getElementById('coTeacher2Input').value,
+                coTeacher3: document.getElementById('coTeacher3Input').value,
+                coTeacher4: document.getElementById('coTeacher4Input').value,
+                startTime: document.getElementById('startTimeInput').value,
+                endTime: document.getElementById('endTimeInput').value,
+                generalCondition: document.getElementById('generalConditionInput').value,
+                gateCondition: document.getElementById('gateConditionInput').value,
+                morningTopic: document.getElementById('morningTopicInput').value,
+                note: document.getElementById('dailyNoteInput').value
+            };
+
+            dailyMeta[currentDate] = payload;
+            localStorage.setItem('att_daily_meta', JSON.stringify(dailyMeta));
+
+            // หน่วงเวลา 400ms ก่อนส่งขึ้น Firebase เพื่อไม่ให้ยิงถี่เกินไปขณะกำลังพิมพ์
+            clearTimeout(saveMetaTimer);
+            saveMetaTimer = setTimeout(() => {
+                if (isFirebaseConnected && db) {
+                    db.ref(`schoolAttendance/dailyMeta/${currentDate}`).set(payload);
+                }
+            }, 400);
         }
 
         function getDayRecord(dateStr, classId) {
@@ -364,7 +670,7 @@
         }
 
         function resetTodayData() {
-            if (!confirm(`ต้องการล้างยอดขาดเรียนของวันที่ ${currentDate} ทั้งหมดเป็น 0 ใช่หรือไม่?`)) return;
+            if (!confirm(`ต้องการล้างยอดไม่มาเรียนของวันที่ ${currentDate} ทั้งหมดเป็น 0 ใช่หรือไม่?`)) return;
             delete allRecords[currentDate];
             localStorage.setItem('att_records', JSON.stringify(allRecords));
             if (isFirebaseConnected && db) {
@@ -373,7 +679,115 @@
             updateUI();
         }
 
-        // --- 5. Render UI ---
+        // --- 5. Print A4 Report Function (ถอดแบบจากใบรายงานต้นฉบับ) ---
+        function printReport() {
+            // หัวรายงาน
+            const titleEl = document.getElementById('printHeaderTitle');
+            if (schoolInfo.schoolName && schoolInfo.schoolName.trim() !== '') {
+                titleEl.innerText = `บันทึกการปฏิบัติงานครูเวรประจำวัน ${schoolInfo.schoolName.trim()}`;
+            } else {
+                titleEl.innerText = 'บันทึกการปฏิบัติงานครูเวรประจำวัน';
+            }
+            document.getElementById('printHeaderDate').innerText = 'ประจำ' + getFormattedThaiDate(currentDate);
+
+            // ข้อมูลข้อความจากฟอร์ม
+            const headTeacher = document.getElementById('headTeacherInput').value.trim();
+            const co1 = document.getElementById('coTeacher1Input').value.trim();
+            const co2 = document.getElementById('coTeacher2Input').value.trim();
+            const co3 = document.getElementById('coTeacher3Input').value.trim();
+            const co4 = document.getElementById('coTeacher4Input').value.trim();
+
+            document.getElementById('p_headTeacher').innerText = headTeacher;
+            document.getElementById('p_coTeacher1').innerText = co1;
+            document.getElementById('p_coTeacher2').innerText = co2;
+            document.getElementById('p_coTeacher3').innerText = co3;
+            document.getElementById('p_coTeacher4').innerText = co4;
+
+            document.getElementById('p_startTime').innerText = document.getElementById('startTimeInput').value.trim() || '07.00';
+            document.getElementById('p_endTime').innerText = document.getElementById('endTimeInput').value.trim() || '16.30';
+            document.getElementById('p_generalCondition').innerText = document.getElementById('generalConditionInput').value.trim() || 'ปกติ';
+            document.getElementById('p_gateCondition').innerText = document.getElementById('gateConditionInput').value.trim() || 'ปกติ';
+            document.getElementById('p_morningTopic').innerText = document.getElementById('morningTopicInput').value.trim();
+            document.getElementById('p_dailyNote').innerText = document.getElementById('dailyNoteInput').value.trim() || 'เหตุการณ์โดยทั่วไปปกติ';
+
+            // ตารางสถิตินักเรียนที่มาเรียนในวันนี้ (ถ้าไม่มาเรียนเป็น 0 ให้แสดง "-" เหมือนต้นฉบับ)
+            let tbodyHtml = '';
+            let sumTotM = 0, sumTotF = 0;
+            let sumPresM = 0, sumPresF = 0;
+            let sumAbsM = 0, sumAbsF = 0;
+
+            classes.forEach(cls => {
+                const rec = getDayRecord(currentDate, cls.id);
+                const absM = rec.absentM || 0;
+                const absF = rec.absentF || 0;
+                const absTot = absM + absF;
+
+                const totM = cls.totalM;
+                const totF = cls.totalF;
+                const totAll = totM + totF;
+
+                const presM = Math.max(0, totM - absM);
+                const presF = Math.max(0, totF - absF);
+                const presAll = presM + presF;
+
+                const pct = totAll > 0 ? Math.round((presAll / totAll) * 100) : 100;
+
+                sumTotM += totM; sumTotF += totF;
+                sumPresM += presM; sumPresF += presF;
+                sumAbsM += absM; sumAbsF += absF;
+
+                tbodyHtml += `
+                    <tr>
+                        <td>${cls.name}</td>
+                        <td>${totM}</td>
+                        <td>${totF}</td>
+                        <td>${totAll}</td>
+                        <td>${presM}</td>
+                        <td>${presF}</td>
+                        <td>${presAll}</td>
+                        <td>${absM === 0 ? '-' : absM}</td>
+                        <td>${absF === 0 ? '-' : absF}</td>
+                        <td>${absTot === 0 ? '-' : absTot}</td>
+                        <td>${pct}</td>
+                    </tr>
+                `;
+            });
+
+            const grandTot = sumTotM + sumTotF;
+            const grandPres = sumPresM + sumPresF;
+            const grandAbs = sumAbsM + sumAbsF;
+            const grandPct = grandTot > 0 ? Math.round((grandPres / grandTot) * 100) : 100;
+
+            document.getElementById('printTableBody').innerHTML = tbodyHtml;
+            document.getElementById('printTableFoot').innerHTML = `
+                <tr>
+                    <td>รวม</td>
+                    <td>${sumTotM}</td>
+                    <td>${sumTotF}</td>
+                    <td>${grandTot}</td>
+                    <td>${sumPresM}</td>
+                    <td>${sumPresF}</td>
+                    <td>${grandPres}</td>
+                    <td>${sumAbsM === 0 ? '-' : sumAbsM}</td>
+                    <td>${sumAbsF === 0 ? '-' : sumAbsF}</td>
+                    <td>${grandAbs === 0 ? '-' : grandAbs}</td>
+                    <td>${grandPct}</td>
+                </tr>
+            `;
+
+            // ใส่ชื่อในวงเล็บใต้ช่องลงนาม (ถ้าไม่ได้กรอกชื่อให้เว้นว่างไว้เขียนมือได้)
+            const formatSign = (name) => name ? `(${name})` : '\u00A0';
+            document.getElementById('p_signHead').innerText = formatSign(headTeacher);
+            document.getElementById('p_signCo1').innerText = formatSign(co1);
+            document.getElementById('p_signCo2').innerText = formatSign(co2);
+            document.getElementById('p_signCo3').innerText = formatSign(co3);
+            document.getElementById('p_signCo4').innerText = formatSign(co4);
+            document.getElementById('p_signDirector').innerText = formatSign(schoolInfo.directorName ? schoolInfo.directorName.trim() : '');
+
+            window.print();
+        }
+
+        // --- 6. Render UI ---
         function updateUI() {
             renderClasses();
             updateSummary();
@@ -425,7 +839,7 @@
 
                         <div class="grid grid-cols-2 gap-3 pt-1">
                             <div class="border border-rose-100 bg-rose-50/40 rounded-lg p-2 flex flex-col items-center">
-                                <span class="text-xs text-rose-700 font-medium mb-1.5">ขาด/ลา (ชาย)</span>
+                                <span class="text-xs text-rose-700 font-medium mb-1.5">ไม่มาเรียน (ชาย)</span>
                                 <div class="flex items-center gap-3">
                                     <button onclick="updateAbsent('${cls.id}', 'M', -1)" class="btn-touch bg-white border border-slate-300 rounded-lg font-bold text-slate-700 active:bg-slate-200 shadow-sm">-</button>
                                     <span class="font-bold text-base w-6 text-center text-rose-600">${absM}</span>
@@ -433,7 +847,7 @@
                                 </div>
                             </div>
                             <div class="border border-rose-100 bg-rose-50/40 rounded-lg p-2 flex flex-col items-center">
-                                <span class="text-xs text-rose-700 font-medium mb-1.5">ขาด/ลา (หญิง)</span>
+                                <span class="text-xs text-rose-700 font-medium mb-1.5">ไม่มาเรียน (หญิง)</span>
                                 <div class="flex items-center gap-3">
                                     <button onclick="updateAbsent('${cls.id}', 'F', -1)" class="btn-touch bg-white border border-slate-300 rounded-lg font-bold text-slate-700 active:bg-slate-200 shadow-sm">-</button>
                                     <span class="font-bold text-base w-6 text-center text-rose-600">${absF}</span>
@@ -508,7 +922,7 @@
             doughnutChartInstance = new Chart(document.getElementById('doughnutChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['มาเรียน (ชาย)', 'มาเรียน (หญิง)', 'ขาด/ลา (รวม)'],
+                    labels: ['มาเรียน (ชาย)', 'มาเรียน (หญิง)', 'ไม่มาเรียน (รวม)'],
                     datasets: [{
                         data: [presM, presF, absAll],
                         backgroundColor: ['#3b82f6', '#ec4899', '#cbd5e1']
@@ -522,7 +936,7 @@
             });
         }
 
-        // --- 6. Historical Charts ---
+        // --- 7. Historical Charts ---
         function setChartMode(mode) {
             chartMode = mode;
             ['daily', 'monthly', 'yearly'].forEach(m => {
@@ -605,14 +1019,11 @@
             });
         }
 
-        // --- 7. Modal & Class Management (พร้อมระบบจัดลำดับขึ้น-ลง) ---
+        // --- 8. Modal & Class Management ---
         function openModal(id) {
-            if (id === 'firebaseModal') {
-                const saved = localStorage.getItem('att_firebase_config');
-                const currentCfg = saved ? JSON.parse(saved) : defaultFirebaseConfig;
-                document.getElementById('firebaseConfigInput').value = JSON.stringify(currentCfg, null, 2);
-            } else if (id === 'classModal') {
-                // คัดลอกข้อมูลมาแก้ไขในตัวแปรชั่วคราว (กดยกเลิกจะไม่กระทบของเดิม)
+            if (id === 'classModal') {
+                document.getElementById('schoolNameInput').value = schoolInfo.schoolName || '';
+                document.getElementById('directorNameInput').value = schoolInfo.directorName || '';
                 editableClasses = classes.map(c => ({ ...c }));
                 renderClassEditor();
             }
@@ -623,7 +1034,6 @@
             document.getElementById(id).classList.add('hidden');
         }
 
-        // เก็บค่าที่ผู้ใช้พิมพ์ในช่อง input ก่อนการเลื่อนขึ้น-ลง / เพิ่ม / ลบ
         function syncEditorInputs() {
             editableClasses.forEach((c, idx) => {
                 const nameEl = document.getElementById(`cls_name_${idx}`);
@@ -639,14 +1049,13 @@
             const list = document.getElementById('classEditorList');
             list.innerHTML = editableClasses.map((c, idx) => `
                 <div class="flex items-center gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                    <!-- ปุ่มเลื่อนขึ้น-ลง -->
                     <div class="flex flex-col gap-0.5">
                         <button type="button" onclick="moveClassRow(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} 
-                            class="px-1.5 py-0.5 text-[10px] leading-none rounded bg-white border border-slate-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 disabled:pointer-events-none" title="เลื่อนขึ้น">
+                            class="px-1.5 py-0.5 text-[10px] leading-none rounded bg-white border border-slate-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 disabled:pointer-events-none">
                             ▲
                         </button>
                         <button type="button" onclick="moveClassRow(${idx}, 1)" ${idx === editableClasses.length - 1 ? 'disabled' : ''} 
-                            class="px-1.5 py-0.5 text-[10px] leading-none rounded bg-white border border-slate-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 disabled:pointer-events-none" title="เลื่อนลง">
+                            class="px-1.5 py-0.5 text-[10px] leading-none rounded bg-white border border-slate-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 disabled:pointer-events-none">
                             ▼
                         </button>
                     </div>
@@ -667,7 +1076,7 @@
                             class="w-12 border border-slate-300 rounded px-1 py-1.5 text-center bg-white">
                     </div>
 
-                    <button type="button" onclick="removeClassRow(${idx})" class="text-rose-500 hover:bg-rose-100 rounded px-2 py-1 text-xs font-bold" title="ลบห้องนี้">
+                    <button type="button" onclick="removeClassRow(${idx})" class="text-rose-500 hover:bg-rose-100 rounded px-2 py-1 text-xs font-bold">
                         ลบ
                     </button>
                 </div>
@@ -690,7 +1099,6 @@
             syncEditorInputs();
             editableClasses.push({ id: 'c_' + Date.now(), name: 'ห้องใหม่', totalM: 15, totalF: 15 });
             renderClassEditor();
-            // เลื่อน Scrollbar ลงล่างสุดอัตโนมัติเพื่อเห็นห้องที่เพิ่งเพิ่ม
             const list = document.getElementById('classEditorList');
             list.scrollTop = list.scrollHeight;
         }
@@ -710,18 +1118,28 @@
                 totalF: Math.max(0, parseInt(c.totalF) || 0)
             }));
 
+            schoolInfo = {
+                schoolName: document.getElementById('schoolNameInput').value.trim(),
+                directorName: document.getElementById('directorNameInput').value.trim()
+            };
+
             localStorage.setItem('att_classes', JSON.stringify(classes));
+            localStorage.setItem('att_school_info', JSON.stringify(schoolInfo));
+
             if (isFirebaseConnected && db) {
                 db.ref('schoolAttendance/classes').set(classes);
+                db.ref('schoolAttendance/schoolInfo').set(schoolInfo);
             }
             closeModal('classModal');
             updateUI();
         }
 
-        // --- 8. Export CSV ---
+        // --- 9. Export CSV ---
         function exportCSV() {
-            let csv = `\uFEFFรายงานสถิติการมาเรียน ประจำวันที่ ${currentDate}\n`;
-            csv += 'ชั้นเรียน,ชายทั้งหมด,หญิงทั้งหมด,รวมทั้งหมด,มาเรียน(ชาย),มาเรียน(หญิง),รวมมาเรียน,ขาด/ลา(ชาย),ขาด/ลา(หญิง),เปอร์เซ็นต์มาเรียน\n';
+            const meta = dailyMeta[currentDate] || {};
+            let csv = `\uFEFFบันทึกการปฏิบัติงานครูเวรประจำวัน ประจำวันที่ ${currentDate}\n`;
+            if (meta.headTeacher) csv += `หัวหน้าเวรประจำวัน: ${meta.headTeacher}\n`;
+            csv += 'ชั้นเรียน,ชายทั้งหมด,หญิงทั้งหมด,รวมทั้งหมด,มาเรียน(ชาย),มาเรียน(หญิง),รวมมาเรียน,ไม่มาเรียน(ชาย),ไม่มาเรียน(หญิง),รวมไม่มาเรียน,ร้อยละมาเรียน\n';
             classes.forEach(c => {
                 const rec = getDayRecord(currentDate, c.id);
                 const absM = rec.absentM || 0;
@@ -730,18 +1148,19 @@
                 const presM = Math.max(0, c.totalM - absM);
                 const presF = Math.max(0, c.totalF - absF);
                 const presTot = presM + presF;
-                const pct = tot > 0 ? ((presTot / tot) * 100).toFixed(1) : 100;
-                csv += `${c.name},${c.totalM},${c.totalF},${tot},${presM},${presF},${presTot},${absM},${absF},${pct}%\n`;
+                const pct = tot > 0 ? Math.round((presTot / tot) * 100) : 100;
+                csv += `${c.name},${c.totalM},${c.totalF},${tot},${presM},${presF},${presTot},${absM},${absF},${absM + absF},${pct}%\n`;
             });
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `สถิติการมาเรียน_${currentDate}.csv`;
+            link.download = `บันทึกครูเวรและสถิติ_${currentDate}.csv`;
             link.click();
         }
 
         // Start App
         initFirebase();
+        loadDailyMetaInputs();
         updateUI();
     </script>
 </body>
