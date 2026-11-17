@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="th" class="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบบันทึกและสถิติเปอร์เซ็นต์การมาเรียน (แยกชาย-หญิง)</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Prompt & Sarabun -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Firebase App & Realtime Database SDK (Compat v10) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Prompt', 'Sarabun', 'sans-serif'],
+            body: ['Sarabun', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* บังคับใช้โหมดสว่างกับฟอร์มและปฏิทินเลือกวันที่ (ป้องกันพื้นหลังดำบน macOS/Windows Dark Mode) */
+    :root {
+      color-scheme: light;
+    }
+
+    html, body {
+      color-scheme: light;
+      font-family: 'Prompt', 'Sarabun', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+
+    .font-sarabun {
+      font-family: 'Sarabun', sans-serif;
+    }
+
+    /* บังคับพื้นหลังสีขาวและตัวอักษรสีเข้มสำหรับช่องกรอกข้อมูลทั้งหมด */
+    input, textarea, select {
+      color-scheme: light !important;
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: none;
+      opacity: 0.75;
+      cursor: pointer;
+    }
+
+    /* ซ่อนลูกศรในช่อง input number */
+    input[type='number']::-webkit-inner-spin-button,
+    input[type='number']::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type='number'] {
+      -moz-appearance: textfield;
+    }
+
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      body {
+        background-color: #ffffff;
+      }
+      .shadow-sm, .shadow-md, .shadow-lg {
+        box-shadow: none !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+
+  <!-- Toast Notification -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 no-print"></div>
+
+  <!-- Header & Top Toolbar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <!-- Title & Subtitle -->
+        <div>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <div class="bg-indigo-600 text-white p-2 rounded-xl shadow-sm">
+              <i data-lucide="clipboard-check" class="w-6 h-6"></i>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+              ระบบบันทึกและสถิติเปอร์เซ็นต์การมาเรียน (แยกชาย-หญิง)
+            </h1>
+          </div>
+          <p class="text-sm text-slate-500 mt-1 font-sarabun">
+            บันทึกการมาเรียนรายวัน / สรุปรายเดือน &amp; รายปี (แยกตามระดับชั้นและเพศ)
+          </p>
+        </div>
+
+        <!-- Status Badge & 4 Action Buttons -->
+        <div class="flex flex-wrap items-center gap-2.5 no-print">
+          <!-- Status Badge -->
+          <span id="connection-badge" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+            <span id="connection-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+            <span id="connection-text">บันทึกอัตโนมัติ (Local)</span>
+          </span>
+
+          <!-- Button 1: ตั้งค่า Firebase (ปุ่มสีส้มเด่นชัด) -->
+          <button onclick="openFirebaseModal()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition active:scale-95 ring-2 ring-amber-300/60">
+            <i data-lucide="flame" class="w-4 h-4"></i>
+            <span>ตั้งค่า Firebase</span>
+          </button>
+
+          <!-- Button 2: จัดการห้องเรียน -->
+          <button onclick="openClassModal()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition active:scale-95">
+            <i data-lucide="school" class="w-4 h-4"></i>
+            <span id="manage-class-btn-text">จัดการห้องเรียน (10)</span>
+          </button>
+
+          <!-- Button 3: ส่งออก CSV -->
+          <button onclick="exportCSV()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition active:scale-95">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>ส่งออก CSV</span>
+          </button>
+
+          <!-- Button 4: พิมพ์รายงาน -->
+          <button onclick="window.print()" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition active:scale-95">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>พิมพ์รายงาน</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Date Picker & Quick Actions Bar -->
+    <section class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <label for="attendance-date" class="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+          <i data-lucide="calendar" class="w-4 h-4 text-indigo-600"></i>
+          วันที่บันทึกข้อมูล:
+        </label>
+        <input type="date" id="attendance-date" class="px-3.5 py-2 rounded-xl bg-white text-slate-900 border border-slate-300 text-sm font-semibold shadow-2xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <button onclick="setToday()" class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition no-print">
+          วันนี้
+        </button>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 no-print">
+        <button onclick="setAllPresent()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition active:scale-95">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          มาครบทุกคน (100%)
+        </button>
+        <button onclick="resetDayData()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition active:scale-95">
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          รีเซ็ตเป็น 0
+        </button>
+      </div>
+    </section>
+
+    <!-- 4 Summary Cards -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Card 1: นักเรียนทั้งหมด -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-slate-500">นักเรียนทั้งหมด (คน)</span>
+          <div class="p-2 bg-blue-50 text-blue-600 rounded-xl">
+            <i data-lucide="users" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span id="card-total-students" class="text-3xl font-bold text-slate-900">0</span>
+          <span class="text-xs text-slate-400">คน</span>
+        </div>
+        <div class="mt-2 flex items-center gap-3 text-xs font-medium">
+          <span class="text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md">ชาย: <strong id="card-total-male">0</strong></span>
+          <span class="text-pink-600 bg-pink-50 px-2 py-0.5 rounded-md">หญิง: <strong id="card-total-female">0</strong></span>
+        </div>
+      </div>
+
+      <!-- Card 2: มาเรียนทั้งหมด -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-slate-500">มาเรียนทั้งหมด (คน)</span>
+          <div class="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+            <i data-lucide="user-check" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span id="card-present-students" class="text-3xl font-bold text-emerald-600">0</span>
+          <span class="text-xs text-slate-400">คน</span>
+        </div>
+        <div class="mt-2 flex items-center gap-3 text-xs font-medium">
+          <span class="text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md">ชาย: <strong id="card-present-male">0</strong></span>
+          <span class="text-pink-600 bg-pink-50 px-2 py-0.5 rounded-md">หญิง: <strong id="card-present-female">0</strong></span>
+        </div>
+      </div>
+
+      <!-- Card 3: ขาด / ลา / สาย รวม -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-slate-500">ขาด / ลา / สาย รวม</span>
+          <div class="p-2 bg-amber-50 text-amber-600 rounded-xl">
+            <i data-lucide="user-x" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span id="card-not-normal-total" class="text-3xl font-bold text-amber-600">0</span>
+          <span class="text-xs text-slate-400">คน</span>
+        </div>
+        <div class="mt-2 flex flex-wrap items-center gap-1.5 text-xs font-medium">
+          <span class="text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">ขาด: <strong id="card-absent-total">0</strong></span>
+          <span class="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">ลา: <strong id="card-leave-total">0</strong></span>
+          <span class="text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md">สาย: <strong id="card-late-total">0</strong></span>
+        </div>
+      </div>
+
+      <!-- Card 4: เปอร์เซ็นต์การมาเรียนรวม -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-sm font-medium text-slate-500">เปอร์เซ็นต์การมาเรียน</span>
+          <div class="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+            <i data-lucide="percent" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-3 flex items-baseline gap-2">
+          <span id="card-percent-total" class="text-3xl font-bold text-indigo-600">0.0%</span>
+        </div>
+        <div class="mt-2 flex items-center gap-3 text-xs font-medium">
+          <span class="text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md">% ชาย: <strong id="card-percent-male">0.0%</strong></span>
+          <span class="text-pink-600 bg-pink-50 px-2 py-0.5 rounded-md">% หญิง: <strong id="card-percent-female">0.0%</strong></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Daily Attendance Table -->
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="p-4 sm:p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="table" class="w-5 h-5 text-indigo-600"></i>
+            ตารางบันทึกการเช็กชื่อรายวัน (แยกชาย-หญิง)
+          </h2>
+          <p class="text-xs text-slate-500 font-sarabun mt-0.5">
+            ระบุจำนวนนักเรียนที่ <span class="text-rose-600 font-semibold">ขาด</span>, <span class="text-amber-600 font-semibold">ลา</span> หรือ <span class="text-purple-600 font-semibold">มาสาย</span> ระบบจะคำนวณยอดมาเรียนและเปอร์เซ็นต์ให้อัตโนมัติ (นับรวมคนมาสายเป็นมาเรียน)
+          </p>
+        </div>
+
+        <!-- ช่องค้นหาห้องเรียน (พื้นหลังขาวสะอาดตา) -->
+        <div class="relative w-full sm:w-64 no-print">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+          <input type="text" id="class-search-input" oninput="renderTable()" placeholder="ค้นหาระดับชั้น / ห้องเรียน..." class="w-full pl-9 pr-3 py-2 rounded-xl bg-white text-slate-900 border border-slate-300 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse min-w-[1050px]">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <th class="py-3 px-4">ระดับชั้น / ห้องเรียน</th>
+              <th class="py-3 px-3 text-center">เต็ม<br><span class="text-[11px] font-normal text-slate-400">(ชาย / หญิง)</span></th>
+              <th class="py-3 px-3 text-center bg-emerald-50/60 text-emerald-800">มาเรียน<br><span class="text-[11px] font-normal text-emerald-600">(ชาย / หญิง)</span></th>
+              <th class="py-3 px-3 text-center bg-rose-50/60 text-rose-800">ขาดเรียน<br><span class="text-[11px] font-normal text-rose-600">(ช / ญ)</span></th>
+              <th class="py-3 px-3 text-center bg-amber-50/60 text-amber-800">ลากิจ/ป่วย<br><span class="text-[11px] font-normal text-amber-600">(ช / ญ)</span></th>
+              <th class="py-3 px-3 text-center bg-purple-50/60 text-purple-800">มาสาย<br><span class="text-[11px] font-normal text-purple-600">(ช / ญ)</span></th>
+              <th class="py-3 px-3 text-center text-sky-700">% ชาย</th>
+              <th class="py-3 px-3 text-center text-pink-700">% หญิง</th>
+              <th class="py-3 px-3 text-center text-indigo-700">% รวมห้อง</th>
+              <th class="py-3 px-4 text-center">สถานะ</th>
+            </tr>
+          </thead>
+          <tbody id="attendance-table-body" class="divide-y divide-slate-200 text-sm font-sarabun">
+            <!-- Rows rendered by JS -->
+          </tbody>
+          <tfoot id="attendance-table-foot" class="bg-slate-100 border-t-2 border-slate-300 font-bold text-sm text-slate-800">
+            <!-- Summary footer rendered by JS -->
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- Statistics & Charts Section -->
+    <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-5">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-5 h-5 text-indigo-600"></i>
+            วิเคราะห์สถิติและเปรียบเทียบเปอร์เซ็นต์การมาเรียน
+          </h2>
+          <p class="text-xs text-slate-500 font-sarabun mt-0.5">
+            เปรียบเทียบเปอร์เซ็นต์การมาเรียนรายห้องเรียนเทียบกับเกณฑ์มาตรฐานที่กำหนด
+          </p>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="flex flex-wrap items-center gap-3 no-print">
+          <!-- Period Selector -->
+          <div class="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+            <button type="button" onclick="setStatsPeriod('day')" id="period-day" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-indigo-600 shadow-sm transition">
+              รายวัน
+            </button>
+            <button type="button" onclick="setStatsPeriod('month')" id="period-month" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition">
+              รายเดือน
+            </button>
+            <button type="button" onclick="setStatsPeriod('year')" id="period-year" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition">
+              รายปี
+            </button>
+          </div>
+
+          <!-- Standard Threshold Input (พื้นหลังขาวสะอาดตา) -->
+          <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-300">
+            <label for="threshold-input" class="text-xs font-semibold text-slate-700">เกณฑ์มาตรฐาน (%):</label>
+            <input type="number" id="threshold-input" value="90" min="1" max="100" onchange="updateThreshold(this.value)" class="w-14 px-2 py-1 text-center text-xs font-bold bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+        </div>
+      </div>
+
+      <div id="period-info-banner" class="text-xs text-indigo-700 bg-indigo-50 px-3.5 py-2 rounded-xl border border-indigo-100 font-medium">
+        กำลังแสดงสถิติ: ข้อมูลรายวัน ประจำวันที่เลือก
+      </div>
+
+      <!-- Charts Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Bar Chart -->
+        <div class="lg:col-span-2 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+          <h3 class="text-sm font-bold text-slate-700 mb-3">เปอร์เซ็นต์การมาเรียนรายห้องเรียน เทียบเกณฑ์มาตรฐาน</h3>
+          <div class="relative h-72 w-full">
+            <canvas id="barChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Doughnut Chart -->
+        <div class="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between">
+          <h3 class="text-sm font-bold text-slate-700 mb-3">สัดส่วนการมาเรียน ชาย vs หญิง</h3>
+          <div class="relative h-60 w-full flex items-center justify-center">
+            <canvas id="doughnutChart"></canvas>
+          </div>
+          <div id="gender-summary-footer" class="mt-3 pt-3 border-t border-slate-200/70 flex justify-around text-xs font-semibold">
+            <span class="text-sky-600">ชาย: 0%</span>
+            <span class="text-pink-600">หญิง: 0%</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400 font-sarabun">
+    ระบบบันทึกและสถิติเปอร์เซ็นต์การมาเรียนของนักเรียน (แยกชาย-หญิง) • รองรับการซิงก์ข้อมูลผ่าน Firebase Realtime Database
+  </footer>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 1: ตั้งค่า Firebase (Smart Config Paste) -->
+  <!-- ===================================================================== -->
+  <div id="firebase-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-amber-500 px-6 py-4 flex items-center justify-between text-white">
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="flame" class="w-6 h-6"></i>
+          <h3 class="text-lg font-bold">ตั้งค่าเชื่อมต่อ Firebase Realtime Database</h3>
+        </div>
+        <button onclick="closeFirebaseModal()" class="p-1 rounded-lg hover:bg-amber-600 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 font-sarabun space-y-1">
+          <p class="font-bold text-amber-800">วิธีเชื่อมต่อแบบง่ายที่สุด:</p>
+          <p>1. กดปุ่มคัดลอกโค้ดจากหน้า <strong>Firebase Console</strong> (ส่วน Add Firebase SDK)</p>
+          <p>2. นำโค้ดทั้งหมดมาวางลงในช่องด้านล่างนี้ได้เลย ระบบจะดึงค่า <code>firebaseConfig</code> และ <code>databaseURL</code> ให้อัตโนมัติครับ</p>
+        </div>
+
+        <div>
+          <label for="firebase-raw-input" class="block text-sm font-semibold text-slate-700 mb-1.5">
+            วางโค้ดจาก Firebase Console ที่นี่ (รองรับทั้งก้อนโค้ด JS หรือ JSON):
+          </label>
+          <textarea id="firebase-raw-input" rows="6" oninput="parseFirebaseInput()" placeholder='วางโค้ด เช่น:
+const firebaseConfig = {
+  apiKey: "AIzaSy...",
+  authDomain: "...",
+  databaseURL: "https://...-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "...",
+  ...
+};' class="w-full p-3 rounded-xl border border-slate-300 text-xs font-mono bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"></textarea>
+        </div>
+
+        <!-- Detected Database URL Preview -->
+        <div>
+          <label for="parsed-db-url" class="block text-xs font-semibold text-slate-600 mb-1">
+            ตรวจสอบลิงก์ฐานข้อมูล (databaseURL ที่ระบบตรวจพบ):
+          </label>
+          <input type="text" id="parsed-db-url" placeholder="https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+          <p id="parse-status-msg" class="text-[11px] text-slate-500 mt-1 font-sarabun">
+            * ระบบจะดึงค่าอัตโนมัติทันทีที่คุณวางโค้ดด้านบน
+          </p>
+        </div>
+
+        <div class="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100">
+          <button type="button" onclick="disconnectFirebase()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 transition">
+            <i data-lucide="unlink" class="w-4 h-4"></i>
+            ยกเลิกการเชื่อมต่อ / ล้างค่า
+          </button>
+
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeFirebaseModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+              ปิดหน้าต่าง
+            </button>
+            <button type="button" onclick="saveAndConnectFirebase()" class="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition active:scale-95">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              บันทึกและเชื่อมต่อ Firebase
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODAL 2: จัดการห้องเรียน (เพิ่ม / แก้ไข / ลบ) -->
+  <!-- ===================================================================== -->
+  <div id="class-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="bg-indigo-600 px-6 py-4 flex items-center justify-between text-white">
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="school" class="w-6 h-6"></i>
+          <h3 class="text-lg font-bold">จัดการข้อมูลห้องเรียนและจำนวนนักเรียน</h3>
+        </div>
+        <button onclick="closeClassModal()" class="p-1 rounded-lg hover:bg-indigo-700 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Add New Class Form -->
+      <div class="p-5 bg-slate-50 border-b border-slate-200">
+        <h4 class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3">เพิ่มห้องเรียนใหม่</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div class="sm:col-span-2">
+            <input type="text" id="new-class-name" placeholder="ชื่อระดับชั้น/ห้อง (เช่น ป.1/1)" class="w-full px-3 py-2 rounded-xl bg-white text-slate-900 border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <input type="number" id="new-class-male" placeholder="จำนวนชาย" min="0" class="w-full px-3 py-2 rounded-xl bg-white text-slate-900 border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div class="flex gap-2">
+            <input type="number" id="new-class-female" placeholder="จำนวนหญิง" min="0" class="w-full px-3 py-2 rounded-xl bg-white text-slate-900 border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <button onclick="addNewClass()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shrink-0 transition">
+              เพิ่ม
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Existing Classes List -->
+      <div class="p-5 overflow-y-auto flex-1 space-y-2.5 bg-white" id="class-list-container">
+        <!-- Rendered by JS -->
+      </div>
+
+      <div class="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+        <button onclick="resetDefaultClasses()" class="text-xs font-semibold text-slate-500 hover:text-rose-600 transition">
+          คืนค่าห้องเรียนเริ่มต้น 10 ห้อง
+        </button>
+        <button onclick="closeClassModal()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition">
+          เสร็จสิ้น
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- JAVASCRIPT LOGIC -->
+  <!-- ===================================================================== -->
+  <script>
+    // ข้อมูลห้องเรียนเริ่มต้น 10 ห้อง (อนุบาล 2 - ป.6)
+    const DEFAULT_CLASSES = [
+      { id: 'c1', name: 'อนุบาล 2', male: 12, female: 13 },
+      { id: 'c2', name: 'อนุบาล 3', male: 14, female: 14 },
+      { id: 'c3', name: 'ป.1', male: 16, female: 15 },
+      { id: 'c4', name: 'ป.2', male: 15, female: 17 },
+      { id: 'c5', name: 'ป.3/1', male: 13, female: 12 },
+      { id: 'c6', name: 'ป.3/2', male: 12, female: 14 },
+      { id: 'c7', name: 'ป.4', male: 18, female: 16 },
+      { id: 'c8', name: 'ป.5', male: 17, female: 18 },
+      { id: 'c9', name: 'ป.6/1', male: 14, female: 15 },
+      { id: 'c10', name: 'ป.6/2', male: 15, female: 14 }
+    ];
+
+    // สถานะแอปพลิเคชัน
+    let classes = [];
+    let attendanceRecords = {}; // { "YYYY-MM-DD": { classId: { absM, absF, leaM, leaF, latM, latF } } }
+    let currentDate = getTodayStr();
+    let threshold = 90;
+    let statsPeriod = 'day'; // 'day' | 'month' | 'year'
+
+    // ตัวแปร Firebase
+    let firebaseConfigObj = null;
+    let db = null;
+    let isFirebaseConnected = false;
+    let isSyncingFromRemote = false;
+
+    // ตัวแปร Chart.js
+    let barChartInstance = null;
+    let doughnutChartInstance = null;
+
+    // -------------------------------------------------------------------
+    // 1. INITIALIZATION
+    // -------------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      const dateInput = document.getElementById('attendance-date');
+      dateInput.value = currentDate;
+      dateInput.addEventListener('change', (e) => {
+        if (e.target.value) {
+          currentDate = e.target.value;
+          ensureDateRecord(currentDate);
+          renderAll();
+        }
+      });
+
+      loadLocalData();
+      initFirebaseFromStorage();
+      renderAll();
+    });
+
+    function getTodayStr() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function loadLocalData() {
+      try {
+        const savedClasses = localStorage.getItem('att_classes_v1');
+        classes = savedClasses ? JSON.parse(savedClasses) : JSON.parse(JSON.stringify(DEFAULT_CLASSES));
+
+        const savedRecords = localStorage.getItem('att_records_v1');
+        attendanceRecords = savedRecords ? JSON.parse(savedRecords) : {};
+
+        const savedThreshold = localStorage.getItem('att_threshold_v1');
+        if (savedThreshold) {
+          threshold = Number(savedThreshold) || 90;
+          document.getElementById('threshold-input').value = threshold;
+        }
+      } catch (err) {
+        console.error('Error loading local storage:', err);
+        classes = JSON.parse(JSON.stringify(DEFAULT_CLASSES));
+      }
+      ensureDateRecord(currentDate);
+    }
+
+    function saveData() {
+      try {
+        localStorage.setItem('att_classes_v1', JSON.stringify(classes));
+        localStorage.setItem('att_records_v1', JSON.stringify(attendanceRecords));
+        localStorage.setItem('att_threshold_v1', String(threshold));
+      } catch (e) {
+        console.error('Local save failed:', e);
+      }
+
+      // ถ้าเชื่อมต่อ Firebase อยู่ ให้ซิงก์ขึ้น Cloud ด้วย
+      if (isFirebaseConnected && db && !isSyncingFromRemote) {
+        db.ref('school_attendance_app').set({
+          classes: classes,
+          attendanceRecords: attendanceRecords,
+          threshold: threshold,
+          updatedAt: Date.now()
+        }).catch((err) => {
+          console.error('Firebase sync error:', err);
+          showToast('ซิงก์ข้อมูลขึ้น Firebase ไม่สำเร็จ โปรดตรวจสอบ Rules', 'error');
+        });
+      }
+    }
+
+    function ensureDateRecord(dateStr) {
+      if (!attendanceRecords[dateStr]) {
+        attendanceRecords[dateStr] = {};
+      }
+      classes.forEach((cls) => {
+        if (!attendanceRecords[dateStr][cls.id]) {
+          attendanceRecords[dateStr][cls.id] = {
+            absM: 0, absF: 0,
+            leaM: 0, leaF: 0,
+            latM: 0, latF: 0
+          };
+        }
+      });
+    }
+
+    // -------------------------------------------------------------------
+    // 2. FIREBASE CONNECTION & PARSER
+    // -------------------------------------------------------------------
+    function openFirebaseModal() {
+      const savedConfig = localStorage.getItem('att_firebase_config_v1');
+      if (savedConfig) {
+        document.getElementById('firebase-raw-input').value = savedConfig;
+        parseFirebaseInput();
+      }
+      document.getElementById('firebase-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeFirebaseModal() {
+      document.getElementById('firebase-modal').classList.add('hidden');
+    }
+
+    function extractConfigFromText(rawText) {
+      if (!rawText || !rawText.trim()) return null;
+
+      try {
+        const parsed = JSON.parse(rawText.trim());
+        if (parsed && (parsed.apiKey || parsed.databaseURL || parsed.projectId)) {
+          return parsed;
+        }
+      } catch (e) {
+        // ใช้ Regex ดึงค่าจากโค้ด JS
+      }
+
+      const keys = ['apiKey', 'authDomain', 'databaseURL', 'projectId', 'storageBucket', 'messagingSenderId', 'appId', 'measurementId'];
+      const config = {};
+      let foundCount = 0;
+
+      keys.forEach((key) => {
+        const regex = new RegExp(`["']?${key}["']?\\s*:\\s*["']([^"']+)["']`);
+        const match = rawText.match(regex);
+        if (match && match[1]) {
+          config[key] = match[1].trim();
+          foundCount++;
+        }
+      });
+
+      return foundCount >= 2 ? config : null;
+    }
+
+    function parseFirebaseInput() {
+      const raw = document.getElementById('firebase-raw-input').value;
+      const statusEl = document.getElementById('parse-status-msg');
+      const dbUrlInput = document.getElementById('parsed-db-url');
+
+      const extracted = extractConfigFromText(raw);
+      if (extracted) {
+        if (extracted.databaseURL) {
+          dbUrlInput.value = extracted.databaseURL;
+          statusEl.innerHTML = `<span class="text-emerald-600 font-semibold">✓ ตรวจพบค่า Config ครบถ้วน (Project: ${extracted.projectId || 'พบข้อมูล'})</span>`;
+        } else if (extracted.projectId) {
+          const guessedUrl = `https://${extracted.projectId}-default-rtdb.asia-southeast1.firebasedatabase.app`;
+          dbUrlInput.value = guessedUrl;
+          statusEl.innerHTML = `<span class="text-amber-600 font-semibold">⚠ พบ Project ID แต่ไม่พบบรรทัด databaseURL ระบบสร้างลิงก์ให้เบื้องต้น โปรดตรวจสอบให้ตรงกับหน้า Realtime Database</span>`;
+        }
+      } else {
+        statusEl.innerHTML = `<span class="text-slate-500">* กรุณาวางโค้ดที่มี apiKey, projectId และ databaseURL</span>`;
+      }
+    }
+
+    function saveAndConnectFirebase() {
+      const raw = document.getElementById('firebase-raw-input').value;
+      const manualDbUrl = document.getElementById('parsed-db-url').value.trim();
+      const extracted = extractConfigFromText(raw);
+
+      if (!extracted && !manualDbUrl) {
+        showToast('ไม่พบข้อมูล firebaseConfig ที่ถูกต้อง กรุณาวางโค้ดใหม่อีกครั้ง', 'error');
+        return;
+      }
+
+      const finalConfig = extracted || {};
+      if (manualDbUrl) {
+        finalConfig.databaseURL = manualDbUrl;
+      }
+
+      if (!finalConfig.databaseURL) {
+        showToast('กรุณาระบุ databaseURL ของ Realtime Database', 'error');
+        return;
+      }
+
+      localStorage.setItem('att_firebase_config_v1', JSON.stringify(finalConfig, null, 2));
+      connectToFirebase(finalConfig, true);
+      closeFirebaseModal();
+    }
+
+    function initFirebaseFromStorage() {
+      const saved = localStorage.getItem('att_firebase_config_v1');
+      if (saved) {
+        const cfg = extractConfigFromText(saved);
+        if (cfg && cfg.databaseURL) {
+          connectToFirebase(cfg, false);
+        }
+      }
+    }
+
+    function connectToFirebase(config, isManualTrigger) {
+      try {
+        if (firebase.apps.length > 0) {
+          firebase.apps.forEach(app => app.delete());
+        }
+
+        const app = firebase.initializeApp(config);
+        db = firebase.database(app);
+        firebaseConfigObj = config;
+
+        const connectedRef = db.ref('.info/connected');
+        connectedRef.on('value', (snap) => {
+          if (snap.val() === true) {
+            isFirebaseConnected = true;
+            updateConnectionBadge(true);
+            if (isManualTrigger) {
+              showToast('เชื่อมต่อ Firebase Realtime Database สำเร็จ!', 'success');
+              isManualTrigger = false;
+            }
+          } else {
+            updateConnectionBadge(false);
+          }
+        });
+
+        const appRef = db.ref('school_attendance_app');
+        appRef.once('value').then((snapshot) => {
+          const val = snapshot.val();
+          if (!val) {
+            saveData();
+          }
+        });
+
+        appRef.on('value', (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            isSyncingFromRemote = true;
+            if (data.classes && Array.isArray(data.classes)) {
+              classes = data.classes;
+            }
+            if (data.attendanceRecords) {
+              attendanceRecords = data.attendanceRecords;
+            }
+            if (data.threshold) {
+              threshold = Number(data.threshold);
+              document.getElementById('threshold-input').value = threshold;
+            }
+            ensureDateRecord(currentDate);
+            localStorage.setItem('att_classes_v1', JSON.stringify(classes));
+            localStorage.setItem('att_records_v1', JSON.stringify(attendanceRecords));
+            renderAll();
+            isSyncingFromRemote = false;
+          }
+        });
+
+      } catch (error) {
+        console.error('Firebase init error:', error);
+        isFirebaseConnected = false;
+        updateConnectionBadge(false);
+        showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ Firebase: ' + error.message, 'error');
+      }
+    }
+
+    function disconnectFirebase() {
+      localStorage.removeItem('att_firebase_config_v1');
+      if (db) {
+        db.ref('school_attendance_app').off();
+      }
+      isFirebaseConnected = false;
+      db = null;
+      document.getElementById('firebase-raw-input').value = '';
+      document.getElementById('parsed-db-url').value = '';
+      updateConnectionBadge(false);
+      closeFirebaseModal();
+      showToast('ยกเลิกการเชื่อมต่อ Firebase แล้ว (เปลี่ยนเป็นโหมด Local)', 'info');
+    }
+
+    function updateConnectionBadge(connected) {
+      const badge = document.getElementById('connection-badge');
+      const dot = document.getElementById('connection-dot');
+      const text = document.getElementById('connection-text');
+
+      if (connected) {
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200';
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse';
+        text.textContent = 'เชื่อมต่อ Firebase (Real-time)';
+      } else {
+        badge.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200';
+        dot.className = 'w-2 h-2 rounded-full bg-slate-400';
+        text.textContent = 'บันทึกอัตโนมัติ (Local)';
+      }
+    }
+
+    // -------------------------------------------------------------------
+    // 3. ATTENDANCE CALCULATIONS & RENDERING
+    // -------------------------------------------------------------------
+    function renderAll() {
+      document.getElementById('manage-class-btn-text').textContent = `จัดการห้องเรียน (${classes.length})`;
+      renderTable();
+      renderSummaryCards();
+      renderCharts();
+    }
+
+    function renderTable() {
+      ensureDateRecord(currentDate);
+      const tbody = document.getElementById('attendance-table-body');
+      const tfoot = document.getElementById('attendance-table-foot');
+      const searchInput = document.getElementById('class-search-input');
+      const keyword = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+      tbody.innerHTML = '';
+
+      let sumTotalM = 0, sumTotalF = 0;
+      let sumPresM = 0, sumPresF = 0;
+      let sumAbsM = 0, sumAbsF = 0;
+      let sumLeaM = 0, sumLeaF = 0;
+      let sumLatM = 0, sumLatF = 0;
+
+      const filteredClasses = classes.filter(cls => cls.name.toLowerCase().includes(keyword));
+
+      if (filteredClasses.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="10" class="py-8 text-center text-slate-400 text-sm">
+              ไม่พบห้องเรียนที่ค้นหา "${escapeHtml(keyword)}"
+            </td>
+          </tr>
+        `;
+      }
+
+      filteredClasses.forEach((cls) => {
+        const rec = attendanceRecords[currentDate][cls.id] || { absM: 0, absF: 0, leaM: 0, leaF: 0, latM: 0, latF: 0 };
+
+        const presM = Math.max(0, cls.male - rec.absM - rec.leaM);
+        const presF = Math.max(0, cls.female - rec.absF - rec.leaF);
+
+        const pctM = cls.male > 0 ? (presM / cls.male) * 100 : 100;
+        const pctF = cls.female > 0 ? (presF / cls.female) * 100 : 100;
+        const totalClass = cls.male + cls.female;
+        const totalPres = presM + presF;
+        const pctTotal = totalClass > 0 ? (totalPres / totalClass) * 100 : 100;
+
+        sumTotalM += cls.male;
+        sumTotalF += cls.female;
+        sumPresM += presM;
+        sumPresF += presF;
+        sumAbsM += rec.absM;
+        sumAbsF += rec.absF;
+        sumLeaM += rec.leaM;
+        sumLeaF += rec.leaF;
+        sumLatM += rec.latM;
+        sumLatF += rec.latF;
+
+        const isPass = pctTotal >= threshold;
+        const statusBadge = isPass
+          ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">✓ ดีเยี่ยม</span>`
+          : `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">! ต้องติดตาม</span>`;
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50/80 transition bg-white';
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(cls.name)}</td>
+          <td class="py-3 px-3 text-center">
+            <span class="font-semibold text-slate-700">${totalClass}</span>
+            <div class="text-xs text-slate-400">
+              <span class="text-sky-600">${cls.male}</span> / <span class="text-pink-600">${cls.female}</span>
+            </div>
+          </td>
+          <td class="py-3 px-3 text-center bg-emerald-50/30">
+            <span class="font-bold text-emerald-700">${totalPres}</span>
+            <div class="text-xs">
+              <span class="text-sky-600 font-semibold">${presM}</span> / <span class="text-pink-600 font-semibold">${presF}</span>
+            </div>
+          </td>
+          <!-- ขาด (ช/ญ) -->
+          <td class="py-2.5 px-2 text-center bg-rose-50/20">
+            ${renderStepperPair(cls.id, 'absM', rec.absM, 'absF', rec.absF)}
+          </td>
+          <!-- ลา (ช/ญ) -->
+          <td class="py-2.5 px-2 text-center bg-amber-50/20">
+            ${renderStepperPair(cls.id, 'leaM', rec.leaM, 'leaF', rec.leaF)}
+          </td>
+          <!-- สาย (ช/ญ) -->
+          <td class="py-2.5 px-2 text-center bg-purple-50/20">
+            ${renderStepperPair(cls.id, 'latM', rec.latM, 'latF', rec.latF)}
+          </td>
+          <td class="py-3 px-3 text-center font-semibold text-sky-700">${pctM.toFixed(1)}%</td>
+          <td class="py-3 px-3 text-center font-semibold text-pink-700">${pctF.toFixed(1)}%</td>
+          <td class="py-3 px-3 text-center font-bold ${isPass ? 'text-emerald-600' : 'text-rose-600'}">${pctTotal.toFixed(1)}%</td>
+          <td class="py-3 px-4 text-center">${statusBadge}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      const grandTotal = sumTotalM + sumTotalF;
+      const grandPres = sumPresM + sumPresF;
+      const grandPctM = sumTotalM > 0 ? (sumPresM / sumTotalM) * 100 : 100;
+      const grandPctF = sumTotalF > 0 ? (sumPresF / sumTotalF) * 100 : 100;
+      const grandPct = grandTotal > 0 ? (grandPres / grandTotal) * 100 : 100;
+
+      tfoot.innerHTML = `
+        <tr>
+          <td class="py-3.5 px-4">รวมทั้งหมด (${filteredClasses.length} ห้อง)</td>
+          <td class="py-3.5 px-3 text-center">${grandTotal} <span class="text-xs font-normal text-slate-500">(${sumTotalM}/${sumTotalF})</span></td>
+          <td class="py-3.5 px-3 text-center text-emerald-700">${grandPres} <span class="text-xs font-normal">(${sumPresM}/${sumPresF})</span></td>
+          <td class="py-3.5 px-3 text-center text-rose-700">${sumAbsM + sumAbsF} <span class="text-xs font-normal">(${sumAbsM}/${sumAbsF})</span></td>
+          <td class="py-3.5 px-3 text-center text-amber-700">${sumLeaM + sumLeaF} <span class="text-xs font-normal">(${sumLeaM}/${sumLeaF})</span></td>
+          <td class="py-3.5 px-3 text-center text-purple-700">${sumLatM + sumLatF} <span class="text-xs font-normal">(${sumLatM}/${sumLatF})</span></td>
+          <td class="py-3.5 px-3 text-center text-sky-700">${grandPctM.toFixed(1)}%</td>
+          <td class="py-3.5 px-3 text-center text-pink-700">${grandPctF.toFixed(1)}%</td>
+          <td class="py-3.5 px-3 text-center text-indigo-700">${grandPct.toFixed(1)}%</td>
+          <td class="py-3.5 px-4 text-center">-</td>
+        </tr>
+      `;
+    }
+
+    function renderStepperPair(classId, fieldM, valM, fieldF, valF) {
+      return `
+        <div class="flex items-center justify-center gap-1.5">
+          <!-- ชาย (พื้นหลังสีขาวสะอาดตา) -->
+          <div class="flex items-center bg-white border border-slate-300 rounded-lg overflow-hidden shadow-2xs" title="ชาย">
+            <button type="button" onclick="adjustCount('${classId}', '${fieldM}', -1)" class="px-1.5 py-1 text-xs font-bold bg-white text-slate-600 hover:bg-sky-50 hover:text-sky-700 no-print">-</button>
+            <input type="number" min="0" value="${valM}" onchange="setCount('${classId}', '${fieldM}', this.value)" class="w-8 text-center text-xs font-bold bg-white text-sky-700 border-x border-slate-200 py-1 focus:outline-none focus:bg-sky-50/40" />
+            <button type="button" onclick="adjustCount('${classId}', '${fieldM}', 1)" class="px-1.5 py-1 text-xs font-bold bg-white text-slate-600 hover:bg-sky-50 hover:text-sky-700 no-print">+</button>
+          </div>
+          <span class="text-slate-300 text-xs">/</span>
+          <!-- หญิง (พื้นหลังสีขาวสะอาดตา) -->
+          <div class="flex items-center bg-white border border-slate-300 rounded-lg overflow-hidden shadow-2xs" title="หญิง">
+            <button type="button" onclick="adjustCount('${classId}', '${fieldF}', -1)" class="px-1.5 py-1 text-xs font-bold bg-white text-slate-600 hover:bg-pink-50 hover:text-pink-700 no-print">-</button>
+            <input type="number" min="0" value="${valF}" onchange="setCount('${classId}', '${fieldF}', this.value)" class="w-8 text-center text-xs font-bold bg-white text-pink-700 border-x border-slate-200 py-1 focus:outline-none focus:bg-pink-50/40" />
+            <button type="button" onclick="adjustCount('${classId}', '${fieldF}', 1)" class="px-1.5 py-1 text-xs font-bold bg-white text-slate-600 hover:bg-pink-50 hover:text-pink-700 no-print">+</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function adjustCount(classId, field, delta) {
+      ensureDateRecord(currentDate);
+      const cls = classes.find(c => c.id === classId);
+      if (!cls) return;
+
+      const rec = attendanceRecords[currentDate][classId];
+      const maxLimit = field.endsWith('M') ? cls.male : cls.female;
+      let nextVal = (rec[field] || 0) + delta;
+      if (nextVal < 0) nextVal = 0;
+      if (nextVal > maxLimit) nextVal = maxLimit;
+
+      rec[field] = nextVal;
+      validateGenderTotals(cls, rec, field.endsWith('M') ? 'M' : 'F');
+      saveData();
+      renderAll();
+    }
+
+    function setCount(classId, field, rawVal) {
+      ensureDateRecord(currentDate);
+      const cls = classes.find(c => c.id === classId);
+      if (!cls) return;
+
+      const rec = attendanceRecords[currentDate][classId];
+      const maxLimit = field.endsWith('M') ? cls.male : cls.female;
+      let val = parseInt(rawVal, 10);
+      if (isNaN(val) || val < 0) val = 0;
+      if (val > maxLimit) val = maxLimit;
+
+      rec[field] = val;
+      validateGenderTotals(cls, rec, field.endsWith('M') ? 'M' : 'F');
+      saveData();
+      renderAll();
+    }
+
+    function validateGenderTotals(cls, rec, gender) {
+      if (gender === 'M') {
+        if (rec.absM + rec.leaM > cls.male) {
+          rec.leaM = Math.max(0, cls.male - rec.absM);
+        }
+        const presentM = cls.male - rec.absM - rec.leaM;
+        if (rec.latM > presentM) rec.latM = presentM;
+      } else {
+        if (rec.absF + rec.leaF > cls.female) {
+          rec.leaF = Math.max(0, cls.female - rec.absF);
+        }
+        const presentF = cls.female - rec.absF - rec.leaF;
+        if (rec.latF > presentF) rec.latF = presentF;
+      }
+    }
+
+    function renderSummaryCards() {
+      ensureDateRecord(currentDate);
+      let totalM = 0, totalF = 0;
+      let presM = 0, presF = 0;
+      let absAll = 0, leaAll = 0, latAll = 0;
+
+      classes.forEach((cls) => {
+        const rec = attendanceRecords[currentDate][cls.id];
+        totalM += cls.male;
+        totalF += cls.female;
+        presM += Math.max(0, cls.male - rec.absM - rec.leaM);
+        presF += Math.max(0, cls.female - rec.absF - rec.leaF);
+        absAll += (rec.absM + rec.absF);
+        leaAll += (rec.leaM + rec.leaF);
+        latAll += (rec.latM + rec.latF);
+      });
+
+      const totalStudents = totalM + totalF;
+      const presentStudents = presM + presF;
+      const pctTotal = totalStudents > 0 ? (presentStudents / totalStudents) * 100 : 100;
+      const pctM = totalM > 0 ? (presM / totalM) * 100 : 100;
+      const pctF = totalF > 0 ? (presF / totalF) * 100 : 100;
+
+      document.getElementById('card-total-students').textContent = totalStudents;
+      document.getElementById('card-total-male').textContent = totalM;
+      document.getElementById('card-total-female').textContent = totalF;
+
+      document.getElementById('card-present-students').textContent = presentStudents;
+      document.getElementById('card-present-male').textContent = presM;
+      document.getElementById('card-present-female').textContent = presF;
+
+      document.getElementById('card-not-normal-total').textContent = absAll + leaAll + latAll;
+      document.getElementById('card-absent-total').textContent = absAll;
+      document.getElementById('card-leave-total').textContent = leaAll;
+      document.getElementById('card-late-total').textContent = latAll;
+
+      document.getElementById('card-percent-total').textContent = `${pctTotal.toFixed(1)}%`;
+      document.getElementById('card-percent-male').textContent = `${pctM.toFixed(1)}%`;
+      document.getElementById('card-percent-female').textContent = `${pctF.toFixed(1)}%`;
+    }
+
+    // -------------------------------------------------------------------
+    // 4. QUICK ACTIONS
+    // -------------------------------------------------------------------
+    function setToday() {
+      currentDate = getTodayStr();
+      document.getElementById('attendance-date').value = currentDate;
+      ensureDateRecord(currentDate);
+      renderAll();
+    }
+
+    function setAllPresent() {
+      ensureDateRecord(currentDate);
+      classes.forEach((cls) => {
+        attendanceRecords[currentDate][cls.id] = {
+          absM: 0, absF: 0,
+          leaM: 0, leaF: 0,
+          latM: 0, latF: 0
+        };
+      });
+      saveData();
+      renderAll();
+      showToast('บันทึกมาเรียนครบทุกคน (100%) เรียบร้อยแล้ว', 'success');
+    }
+
+    function resetDayData() {
+      setAllPresent();
+      showToast('รีเซ็ตข้อมูลขาด/ลา/สาย เป็น 0 แล้ว', 'info');
+    }
+
+    // -------------------------------------------------------------------
+    // 5. CHARTS & PERIOD STATISTICS
+    // -------------------------------------------------------------------
+    function setStatsPeriod(period) {
+      statsPeriod = period;
+      ['day', 'month', 'year'].forEach((p) => {
+        const btn = document.getElementById(`period-${p}`);
+        if (p === period) {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-indigo-600 shadow-sm transition';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition';
+        }
+      });
+      renderCharts();
+    }
+
+    function updateThreshold(val) {
+      let num = Number(val);
+      if (isNaN(num) || num < 1) num = 1;
+      if (num > 100) num = 100;
+      threshold = num;
+      saveData();
+      renderAll();
+    }
+
+    function getAggregatedStats() {
+      const targetPrefix = statsPeriod === 'day'
+        ? currentDate
+        : statsPeriod === 'month'
+          ? currentDate.slice(0, 7)
+          : currentDate.slice(0, 4);
+
+      const matchedDates = Object.keys(attendanceRecords).filter(d => d.startsWith(targetPrefix));
+      const datesToUse = matchedDates.length > 0 ? matchedDates : [currentDate];
+
+      const banner = document.getElementById('period-info-banner');
+      if (statsPeriod === 'day') {
+        banner.textContent = `กำลังแสดงสถิติ: รายวัน ประจำวันที่ ${currentDate}`;
+      } else if (statsPeriod === 'month') {
+        banner.textContent = `กำลังแสดงสถิติ: สรุปรายเดือน (${targetPrefix}) จากข้อมูลที่บันทึกไว้ ${datesToUse.length} วัน`;
+      } else {
+        banner.textContent = `กำลังแสดงสถิติ: สรุปรายปี (${targetPrefix}) จากข้อมูลที่บันทึกไว้ ${datesToUse.length} วัน`;
+      }
+
+      let totalPresM = 0, totalPresF = 0;
+      const classStats = classes.map((cls) => {
+        let sumCapacity = 0;
+        let sumPres = 0;
+
+        datesToUse.forEach((d) => {
+          const rec = (attendanceRecords[d] && attendanceRecords[d][cls.id])
+            ? attendanceRecords[d][cls.id]
+            : { absM: 0, absF: 0, leaM: 0, leaF: 0, latM: 0, latF: 0 };
+
+          const pM = Math.max(0, cls.male - rec.absM - rec.leaM);
+          const pF = Math.max(0, cls.female - rec.absF - rec.leaF);
+          sumCapacity += (cls.male + cls.female);
+          sumPres += (pM + pF);
+          totalPresM += pM;
+          totalPresF += pF;
+        });
+
+        const pct = sumCapacity > 0 ? (sumPres / sumCapacity) * 100 : 100;
+        return { name: cls.name, pct: Number(pct.toFixed(1)) };
+      });
+
+      return { classStats, totalPresM, totalPresF };
+    }
+
+    function renderCharts() {
+      const { classStats, totalPresM, totalPresF } = getAggregatedStats();
+
+      // 1. Bar Chart
+      const barCtx = document.getElementById('barChart').getContext('2d');
+      if (barChartInstance) barChartInstance.destroy();
+
+      barChartInstance = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: classStats.map(c => c.name),
+          datasets: [
+            {
+              label: 'เปอร์เซ็นต์การมาเรียน (%)',
+              data: classStats.map(c => c.pct),
+              backgroundColor: classStats.map(c => c.pct >= threshold ? 'rgba(16, 185, 129, 0.85)' : 'rgba(244, 63, 94, 0.85)'),
+              borderRadius: 8,
+              maxBarThickness: 36
+            },
+            {
+              label: `เกณฑ์มาตรฐาน (${threshold}%)`,
+              data: classStats.map(() => threshold),
+              type: 'line',
+              borderColor: '#f59e0b',
+              borderWidth: 2,
+              borderDash: [6, 4],
+              pointRadius: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: { callback: (v) => v + '%' }
+            }
+          },
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+
+      // 2. Doughnut Chart
+      const doughnutCtx = document.getElementById('doughnutChart').getContext('2d');
+      if (doughnutChartInstance) doughnutChartInstance.destroy();
+
+      const totalGenderPres = totalPresM + totalPresF;
+      const shareM = totalGenderPres > 0 ? ((totalPresM / totalGenderPres) * 100).toFixed(1) : 50;
+      const shareF = totalGenderPres > 0 ? ((totalPresF / totalGenderPres) * 100).toFixed(1) : 50;
+
+      document.getElementById('gender-summary-footer').innerHTML = `
+        <span class="text-sky-600">ชาย: ${totalPresM} คน (${shareM}%)</span>
+        <span class="text-pink-600">หญิง: ${totalPresF} คน (${shareF}%)</span>
+      `;
+
+      doughnutChartInstance = new Chart(doughnutCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['นักเรียนชายมาเรียน', 'นักเรียนหญิงมาเรียน'],
+          datasets: [{
+            data: [totalPresM, totalPresF],
+            backgroundColor: ['#0284c7', '#db2777'],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+    }
+
+    // -------------------------------------------------------------------
+    // 6. CLASS MANAGEMENT MODAL
+    // -------------------------------------------------------------------
+    function openClassModal() {
+      renderClassListModal();
+      document.getElementById('class-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeClassModal() {
+      document.getElementById('class-modal').classList.add('hidden');
+    }
+
+    function renderClassListModal() {
+      const container = document.getElementById('class-list-container');
+      container.innerHTML = '';
+
+      classes.forEach((cls, index) => {
+        const div = document.createElement('div');
+        div.className = 'flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 p-3 bg-white border border-slate-200 rounded-xl';
+        div.innerHTML = `
+          <div class="flex items-center gap-2 flex-1 min-w-[140px]">
+            <span class="text-xs font-bold text-slate-400 w-5">${index + 1}.</span>
+            <input type="text" value="${escapeHtml(cls.name)}" onchange="updateClassField('${cls.id}', 'name', this.value)" class="w-full px-2.5 py-1.5 rounded-lg bg-white text-slate-900 border border-slate-300 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-sky-700 font-semibold">ชาย:</label>
+            <input type="number" min="0" value="${cls.male}" onchange="updateClassField('${cls.id}', 'male', this.value)" class="w-16 px-2 py-1.5 rounded-lg bg-white text-sky-700 border border-slate-300 text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-sky-500" />
+            <label class="text-xs text-pink-700 font-semibold">หญิง:</label>
+            <input type="number" min="0" value="${cls.female}" onchange="updateClassField('${cls.id}', 'female', this.value)" class="w-16 px-2 py-1.5 rounded-lg bg-white text-pink-700 border border-slate-300 text-center text-sm font-bold focus:outline-none focus:ring-2 focus:ring-pink-500" />
+            <button onclick="deleteClass('${cls.id}')" class="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="ลบห้องเรียน">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+      lucide.createIcons();
+    }
+
+    function addNewClass() {
+      const nameInput = document.getElementById('new-class-name');
+      const maleInput = document.getElementById('new-class-male');
+      const femaleInput = document.getElementById('new-class-female');
+
+      const name = nameInput.value.trim();
+      const male = Math.max(0, parseInt(maleInput.value, 10) || 0);
+      const female = Math.max(0, parseInt(femaleInput.value, 10) || 0);
+
+      if (!name) {
+        showToast('กรุณาระบุชื่อระดับชั้น / ห้องเรียน', 'error');
+        return;
+      }
+
+      const newId = 'c_' + Date.now();
+      classes.push({ id: newId, name, male, female });
+      ensureDateRecord(currentDate);
+
+      nameInput.value = '';
+      maleInput.value = '';
+      femaleInput.value = '';
+
+      saveData();
+      renderClassListModal();
+      renderAll();
+      showToast(`เพิ่มห้อง "${name}" เรียบร้อยแล้ว`, 'success');
+    }
+
+    function updateClassField(classId, field, value) {
+      const cls = classes.find(c => c.id === classId);
+      if (!cls) return;
+
+      if (field === 'name') {
+        if (value.trim()) cls.name = value.trim();
+      } else {
+        cls[field] = Math.max(0, parseInt(value, 10) || 0);
+      }
+
+      saveData();
+      renderAll();
+    }
+
+    function deleteClass(classId) {
+      if (classes.length <= 1) {
+        showToast('ต้องมีห้องเรียนอย่างน้อย 1 ห้องในระบบ', 'error');
+        return;
+      }
+      classes = classes.filter(c => c.id !== classId);
+      saveData();
+      renderClassListModal();
+      renderAll();
+      showToast('ลบห้องเรียนเรียบร้อยแล้ว', 'info');
+    }
+
+    function resetDefaultClasses() {
+      classes = JSON.parse(JSON.stringify(DEFAULT_CLASSES));
+      ensureDateRecord(currentDate);
+      saveData();
+      renderClassListModal();
+      renderAll();
+      showToast('คืนค่าห้องเรียนเริ่มต้น 10 ห้องแล้ว', 'success');
+    }
+
+    // -------------------------------------------------------------------
+    // 7. EXPORT CSV & UTILITIES
+    // -------------------------------------------------------------------
+    function exportCSV() {
+      ensureDateRecord(currentDate);
+      let csvContent = '\uFEFF';
+      csvContent += `รายงานสถิติการมาเรียนประจำวันที่,${currentDate}\n`;
+      csvContent += 'ระดับชั้น/ห้องเรียน,เต็มชาย,เต็มหญิง,เต็มรวม,มาชาย,มาหญิง,มารวม,ขาดชาย,ขาดหญิง,ลาชาย,ลาหญิง,สายชาย,สายหญิง,%ชาย,%หญิง,%รวมห้อง,สถานะ\n';
+
+      classes.forEach((cls) => {
+        const rec = attendanceRecords[currentDate][cls.id];
+        const presM = Math.max(0, cls.male - rec.absM - rec.leaM);
+        const presF = Math.max(0, cls.female - rec.absF - rec.leaF);
+        const total = cls.male + cls.female;
+        const presTotal = presM + presF;
+        const pctM = cls.male > 0 ? ((presM / cls.male) * 100).toFixed(1) : '100.0';
+        const pctF = cls.female > 0 ? ((presF / cls.female) * 100).toFixed(1) : '100.0';
+        const pctTotal = total > 0 ? ((presTotal / total) * 100).toFixed(1) : '100.0';
+        const status = Number(pctTotal) >= threshold ? 'ดีเยี่ยม' : 'ต้องติดตาม';
+
+        csvContent += `"${cls.name}",${cls.male},${cls.female},${total},${presM},${presF},${presTotal},${rec.absM},${rec.absF},${rec.leaM},${rec.leaF},${rec.latM},${rec.latF},${pctM}%,${pctF}%,${pctTotal}%,"${status}"\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `รายงานการมาเรียน_${currentDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast('ดาวน์โหลดไฟล์ CSV สำเร็จ', 'success');
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-rose-600 text-white',
+        info: 'bg-slate-800 text-white'
+      };
+      toast.className = `${colors[type] || colors.info} px-4 py-3 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2 transition-all duration-300`;
+      toast.textContent = message;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+  </script>
+</body>
+</html>
