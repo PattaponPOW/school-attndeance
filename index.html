@@ -84,7 +84,10 @@
             
             <div class="flex flex-wrap gap-1.5 md:gap-2">
                 <button onclick="printReport()" class="bg-white text-indigo-700 hover:bg-indigo-50 text-xs font-bold px-3 py-2 rounded-lg shadow transition flex items-center gap-1">
-                    🖨️ พิมพ์ใบรายงานครูเวร
+                    🖨️ พิมพ์ใบรายงาน
+                </button>
+                <button onclick="openModal('rosterModal')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-2.5 py-2 rounded-lg shadow transition">
+                    📅 ตารางเวรประจำสัปดาห์
                 </button>
                 <button onclick="openModal('classModal')" class="bg-sky-500 hover:bg-sky-600 text-white text-xs font-medium px-2.5 py-2 rounded-lg shadow transition">
                     ⚙️ จัดการห้องเรียน
@@ -117,16 +120,22 @@
 
             <!-- แบบกรอกข้อมูลบันทึกการปฏิบัติงานครูเวรประจำวัน -->
             <div class="space-y-3">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-sm font-bold text-indigo-900">📋 บันทึกการปฏิบัติงานครูเวรประจำวัน (สำหรับพิมพ์ใบรายงาน)</h2>
-                    <span class="text-[11px] text-emerald-600 font-medium">✓ บันทึกอัตโนมัติ</span>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="text-sm font-bold text-indigo-900">📋 รายชื่อครูเวรและรายละเอียดการปฏิบัติงาน</h2>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="applyWeeklyRosterToToday(true)" id="btnApplyRoster"
+                            class="text-[11px] bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 px-2.5 py-1 rounded-lg font-semibold transition">
+                            🔄 ดึงรายชื่อตามตารางเวร
+                        </button>
+                        <span class="text-[11px] text-emerald-600 font-medium">✓ บันทึกอัตโนมัติ</span>
+                    </div>
                 </div>
 
                 <!-- แถวที่ 1: หัวหน้าเวร + เวลาปฏิบัติงาน -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div class="md:col-span-2">
                         <label class="block text-xs font-bold text-slate-700 mb-1">ข้าพเจ้า (หัวหน้าเวรประจำวัน)</label>
-                        <input type="text" id="headTeacherInput" oninput="saveDailyMeta()" placeholder="เช่น นางประนอม ดุจานุทัศน์" 
+                        <input type="text" id="headTeacherInput" oninput="saveDailyMeta()" placeholder="ตั้งค่าในปุ่ม 'ตารางเวรประจำสัปดาห์' หรือพิมพ์ที่นี่" 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
@@ -285,13 +294,11 @@
     <!-- แบบฟอร์มสำหรับพิมพ์ลงกระดาษ A4 (ถอดแบบจากใบรายงานครูเวรต้นฉบับทุกบรรทัด) -->
     <!-- ===================================================================== -->
     <div id="printArea" class="hidden print-only w-full text-black">
-        <!-- หัวกระดาษ -->
         <div class="text-center mb-2">
             <div class="font-bold text-base" id="printHeaderTitle">บันทึกการปฏิบัติงานครูเวรประจำวัน</div>
             <div class="text-sm" id="printHeaderDate">ประจำวันที่ ...</div>
         </div>
 
-        <!-- รายชื่อผู้ปฏิบัติงาน -->
         <div class="space-y-1 text-[11.5pt]">
             <div class="flex items-baseline">
                 <span class="whitespace-nowrap">ข้าพเจ้า</span>
@@ -397,7 +404,6 @@
 
         <!-- ส่วนลงนาม 3 คอลัมน์ 2 แถว เหมือนต้นฉบับ -->
         <div class="grid grid-cols-3 gap-3 mt-7 text-[10.5pt] text-center">
-            <!-- แถวที่ 1 -->
             <div class="space-y-0.5">
                 <div>(ลงชื่อ)........................................</div>
                 <div id="p_signHead" class="text-[9.5pt]"></div>
@@ -414,7 +420,6 @@
                 <div>ครูเวรประจำวัน</div>
             </div>
 
-            <!-- แถวที่ 2 -->
             <div class="space-y-0.5 mt-3">
                 <div>(ลงชื่อ)........................................</div>
                 <div id="p_signCo3" class="text-[9.5pt]"></div>
@@ -433,7 +438,70 @@
         </div>
     </div>
 
-    <!-- Modal: จัดการห้องเรียน + ตั้งค่าหัวรายงานการพิมพ์ -->
+    <!-- ===================================================================== -->
+    <!-- Modal 1: ตารางเวรประจำสัปดาห์ (ตั้งค่ารายชื่อครูเวร จันทร์ - อาทิตย์) -->
+    <!-- ===================================================================== -->
+    <div id="rosterModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-5 shadow-xl space-y-4 max-h-[92vh] flex flex-col">
+            <div class="flex justify-between items-center border-b pb-2">
+                <div>
+                    <h3 class="font-bold text-lg text-slate-800">📅 ตั้งค่าตารางเวรประจำสัปดาห์</h3>
+                    <p class="text-xs text-slate-500">ระบุชื่อครูเวรแต่ละวันไว้ล่วงหน้า ระบบจะดึงชื่อให้อัตโนมัติเมื่อเลือกวันที่</p>
+                </div>
+                <button onclick="closeModal('rosterModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+            </div>
+
+            <!-- แถบเลือกวันในสัปดาห์ -->
+            <div class="flex flex-wrap gap-1.5 bg-slate-100 p-1.5 rounded-xl" id="rosterDayTabs">
+                <!-- สร้างปุ่มวันจันทร์-อาทิตย์ด้วย JS -->
+            </div>
+
+            <!-- ฟอร์มกรอกรายชื่อของวันที่เลือก -->
+            <div class="space-y-3 overflow-y-auto pr-1 flex-1 bg-amber-50/40 p-3.5 rounded-xl border border-amber-100">
+                <div class="font-bold text-sm text-amber-900" id="rosterCurrentDayTitle">ตารางเวรวันจันทร์</div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">⭐ หัวหน้าเวรประจำวัน</label>
+                    <input type="text" id="r_headTeacher" oninput="syncCurrentRosterTab()" placeholder="เช่น นางประนอม ดุจานุทัศน์" 
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">ครูเวรคนที่ 1</label>
+                        <input type="text" id="r_coTeacher1" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล" 
+                            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">ครูเวรคนที่ 2</label>
+                        <input type="text" id="r_coTeacher2" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล" 
+                            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">ครูเวรคนที่ 3</label>
+                        <input type="text" id="r_coTeacher3" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล" 
+                            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">ครูเวรคนที่ 4</label>
+                        <input type="text" id="r_coTeacher4" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล" 
+                            class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t pt-3 flex justify-end gap-2">
+                <button onclick="closeModal('rosterModal')" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg">ยกเลิก</button>
+                <button onclick="saveWeeklyRoster()" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow">
+                    บันทึกตารางเวรทั้งหมด
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- Modal 2: จัดการห้องเรียน + ตั้งค่าหัวรายงานการพิมพ์ -->
+    <!-- ===================================================================== -->
     <div id="classModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 no-print">
         <div class="bg-white rounded-2xl max-w-xl w-full p-5 shadow-xl space-y-3 max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-2">
@@ -444,7 +512,6 @@
                 <button onclick="closeModal('classModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
             </div>
 
-            <!-- ตั้งค่าชื่อโรงเรียนและผู้อำนวยการสำหรับใบพิมพ์ -->
             <div class="bg-indigo-50/60 p-3 rounded-xl border border-indigo-100 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                     <label class="block text-[11px] font-bold text-indigo-900 mb-1">🏫 ชื่อโรงเรียน (แสดงหัวใบพิมพ์)</label>
@@ -499,11 +566,25 @@
             { id: 'p6', name: 'ป.6', totalM: 10, totalF: 15 }
         ];
 
+        const dayLabels = [
+            { key: '1', name: 'วันจันทร์', short: 'จันทร์' },
+            { key: '2', name: 'วันอังคาร', short: 'อังคาร' },
+            { key: '3', name: 'วันพุธ', short: 'พุธ' },
+            { key: '4', name: 'วันพฤหัสบดี', short: 'พฤหัสบดี' },
+            { key: '5', name: 'วันศุกร์', short: 'ศุกร์' },
+            { key: '6', name: 'วันเสาร์', short: 'เสาร์' },
+            { key: '0', name: 'วันอาทิตย์', short: 'อาทิตย์' }
+        ];
+
         let classes = JSON.parse(localStorage.getItem('att_classes')) || defaultClasses;
         let editableClasses = [];
         let allRecords = JSON.parse(localStorage.getItem('att_records')) || {};
         let dailyMeta = JSON.parse(localStorage.getItem('att_daily_meta')) || {};
         let schoolInfo = JSON.parse(localStorage.getItem('att_school_info')) || { schoolName: '', directorName: '' };
+        // ตารางเวรประจำสัปดาห์: { "1": { headTeacher: "", coTeacher1: "", ... }, ... }
+        let weeklyRoster = JSON.parse(localStorage.getItem('att_weekly_roster')) || {};
+        let editableRoster = {};
+        let selectedRosterDay = '1';
         
         let currentDate = new Date().toISOString().slice(0, 10);
         let chartMode = 'daily';
@@ -560,6 +641,15 @@
                     loadDailyMetaInputs();
                 });
 
+                db.ref('schoolAttendance/weeklyRoster').on('value', (snapshot) => {
+                    const val = snapshot.val();
+                    if (val) {
+                        weeklyRoster = val;
+                        localStorage.setItem('att_weekly_roster', JSON.stringify(weeklyRoster));
+                        loadDailyMetaInputs();
+                    }
+                });
+
                 db.ref('schoolAttendance/schoolInfo').on('value', (snapshot) => {
                     const val = snapshot.val();
                     if (val) {
@@ -574,12 +664,17 @@
             }
         }
 
-        // --- 4. Date, Duty Teacher & Data Operations ---
+        // --- 4. Date, Duty Teacher & Weekly Roster Operations ---
         function onDateChange() {
             currentDate = datePicker.value;
             updateThaiDateLabel();
             loadDailyMetaInputs();
             updateUI();
+        }
+
+        function getDayOfWeekKey(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00');
+            return String(d.getDay()); // '0' (อาทิตย์) - '6' (เสาร์)
         }
 
         function getFormattedThaiDate(dateStr) {
@@ -592,21 +687,55 @@
 
         function updateThaiDateLabel() {
             document.getElementById('thaiDateLabel').innerText = getFormattedThaiDate(currentDate);
+            const dayKey = getDayOfWeekKey(currentDate);
+            const dayObj = dayLabels.find(d => d.key === dayKey);
+            const btn = document.getElementById('btnApplyRoster');
+            if (btn && dayObj) {
+                btn.innerText = `🔄 ดึงตามตารางเวร${dayObj.name}`;
+            }
         }
 
         function loadDailyMetaInputs() {
             const meta = dailyMeta[currentDate] || {};
-            document.getElementById('headTeacherInput').value = meta.headTeacher || meta.teacher || '';
-            document.getElementById('coTeacher1Input').value = meta.coTeacher1 || '';
-            document.getElementById('coTeacher2Input').value = meta.coTeacher2 || '';
-            document.getElementById('coTeacher3Input').value = meta.coTeacher3 || '';
-            document.getElementById('coTeacher4Input').value = meta.coTeacher4 || '';
+            const dayKey = getDayOfWeekKey(currentDate);
+            const roster = weeklyRoster[dayKey] || {};
+
+            // ถ้าวันนี้ยังไม่เคยบันทึกรายชื่อครูเวรไว้ ให้ดึงจากตารางเวรประจำสัปดาห์มาใส่อัตโนมัติ
+            const hasSavedTeachers = meta.headTeacher || meta.coTeacher1 || meta.coTeacher2 || meta.coTeacher3 || meta.coTeacher4;
+
+            document.getElementById('headTeacherInput').value = hasSavedTeachers ? (meta.headTeacher || '') : (roster.headTeacher || '');
+            document.getElementById('coTeacher1Input').value = hasSavedTeachers ? (meta.coTeacher1 || '') : (roster.coTeacher1 || '');
+            document.getElementById('coTeacher2Input').value = hasSavedTeachers ? (meta.coTeacher2 || '') : (roster.coTeacher2 || '');
+            document.getElementById('coTeacher3Input').value = hasSavedTeachers ? (meta.coTeacher3 || '') : (roster.coTeacher3 || '');
+            document.getElementById('coTeacher4Input').value = hasSavedTeachers ? (meta.coTeacher4 || '') : (roster.coTeacher4 || '');
+
             document.getElementById('startTimeInput').value = meta.startTime !== undefined ? meta.startTime : '07.00';
             document.getElementById('endTimeInput').value = meta.endTime !== undefined ? meta.endTime : '16.30';
             document.getElementById('generalConditionInput').value = meta.generalCondition !== undefined ? meta.generalCondition : 'ปกติ';
             document.getElementById('gateConditionInput').value = meta.gateCondition !== undefined ? meta.gateCondition : 'ปกติ';
             document.getElementById('morningTopicInput').value = meta.morningTopic || '';
             document.getElementById('dailyNoteInput').value = meta.note !== undefined ? meta.note : 'เหตุการณ์โดยทั่วไปปกติ';
+        }
+
+        // กดปุ่มเพื่อดึงรายชื่อจากตารางเวรประจำสัปดาห์มาทับวันปัจจุบัน
+        function applyWeeklyRosterToToday(showAlert = false) {
+            const dayKey = getDayOfWeekKey(currentDate);
+            const roster = weeklyRoster[dayKey];
+            const dayObj = dayLabels.find(d => d.key === dayKey);
+
+            if (!roster || (!roster.headTeacher && !roster.coTeacher1 && !roster.coTeacher2)) {
+                if (showAlert) {
+                    alert(`ยังไม่ได้ตั้งค่ารายชื่อครูเวรสำหรับ${dayObj ? dayObj.name : 'วันนี้'} กรุณากดปุ่ม "📅 ตารางเวรประจำสัปดาห์" ด้านบนเพื่อตั้งค่าก่อนครับ`);
+                }
+                return;
+            }
+
+            document.getElementById('headTeacherInput').value = roster.headTeacher || '';
+            document.getElementById('coTeacher1Input').value = roster.coTeacher1 || '';
+            document.getElementById('coTeacher2Input').value = roster.coTeacher2 || '';
+            document.getElementById('coTeacher3Input').value = roster.coTeacher3 || '';
+            document.getElementById('coTeacher4Input').value = roster.coTeacher4 || '';
+            saveDailyMeta();
         }
 
         let saveMetaTimer = null;
@@ -628,7 +757,6 @@
             dailyMeta[currentDate] = payload;
             localStorage.setItem('att_daily_meta', JSON.stringify(dailyMeta));
 
-            // หน่วงเวลา 400ms ก่อนส่งขึ้น Firebase เพื่อไม่ให้ยิงถี่เกินไปขณะกำลังพิมพ์
             clearTimeout(saveMetaTimer);
             saveMetaTimer = setTimeout(() => {
                 if (isFirebaseConnected && db) {
@@ -637,6 +765,60 @@
             }, 400);
         }
 
+        // --- Weekly Roster Modal Logic ---
+        function renderRosterTabs() {
+            const tabContainer = document.getElementById('rosterDayTabs');
+            tabContainer.innerHTML = dayLabels.map(d => {
+                const isActive = d.key === selectedRosterDay;
+                const hasData = editableRoster[d.key] && (editableRoster[d.key].headTeacher || editableRoster[d.key].coTeacher1);
+                return `
+                    <button type="button" onclick="selectRosterDay('${d.key}')"
+                        class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 ${isActive ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-600 hover:bg-slate-200'}">
+                        ${d.short}
+                        ${hasData ? `<span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-amber-300' : 'bg-emerald-500'}"></span>` : ''}
+                    </button>
+                `;
+            }).join('');
+
+            const currentDayObj = dayLabels.find(d => d.key === selectedRosterDay);
+            document.getElementById('rosterCurrentDayTitle').innerText = `ตารางเวรประจำ${currentDayObj ? currentDayObj.name : ''}`;
+
+            const data = editableRoster[selectedRosterDay] || {};
+            document.getElementById('r_headTeacher').value = data.headTeacher || '';
+            document.getElementById('r_coTeacher1').value = data.coTeacher1 || '';
+            document.getElementById('r_coTeacher2').value = data.coTeacher2 || '';
+            document.getElementById('r_coTeacher3').value = data.coTeacher3 || '';
+            document.getElementById('r_coTeacher4').value = data.coTeacher4 || '';
+        }
+
+        function syncCurrentRosterTab() {
+            editableRoster[selectedRosterDay] = {
+                headTeacher: document.getElementById('r_headTeacher').value.trim(),
+                coTeacher1: document.getElementById('r_coTeacher1').value.trim(),
+                coTeacher2: document.getElementById('r_coTeacher2').value.trim(),
+                coTeacher3: document.getElementById('r_coTeacher3').value.trim(),
+                coTeacher4: document.getElementById('r_coTeacher4').value.trim()
+            };
+        }
+
+        function selectRosterDay(dayKey) {
+            syncCurrentRosterTab();
+            selectedRosterDay = dayKey;
+            renderRosterTabs();
+        }
+
+        function saveWeeklyRoster() {
+            syncCurrentRosterTab();
+            weeklyRoster = JSON.parse(JSON.stringify(editableRoster));
+            localStorage.setItem('att_weekly_roster', JSON.stringify(weeklyRoster));
+            if (isFirebaseConnected && db) {
+                db.ref('schoolAttendance/weeklyRoster').set(weeklyRoster);
+            }
+            closeModal('rosterModal');
+            loadDailyMetaInputs();
+        }
+
+        // --- Attendance Record Logic ---
         function getDayRecord(dateStr, classId) {
             if (!allRecords[dateStr] || !allRecords[dateStr][classId]) {
                 return { absentM: 0, absentF: 0 };
@@ -679,9 +861,8 @@
             updateUI();
         }
 
-        // --- 5. Print A4 Report Function (ถอดแบบจากใบรายงานต้นฉบับ) ---
+        // --- 5. Print A4 Report Function ---
         function printReport() {
-            // หัวรายงาน
             const titleEl = document.getElementById('printHeaderTitle');
             if (schoolInfo.schoolName && schoolInfo.schoolName.trim() !== '') {
                 titleEl.innerText = `บันทึกการปฏิบัติงานครูเวรประจำวัน ${schoolInfo.schoolName.trim()}`;
@@ -690,7 +871,6 @@
             }
             document.getElementById('printHeaderDate').innerText = 'ประจำ' + getFormattedThaiDate(currentDate);
 
-            // ข้อมูลข้อความจากฟอร์ม
             const headTeacher = document.getElementById('headTeacherInput').value.trim();
             const co1 = document.getElementById('coTeacher1Input').value.trim();
             const co2 = document.getElementById('coTeacher2Input').value.trim();
@@ -710,7 +890,6 @@
             document.getElementById('p_morningTopic').innerText = document.getElementById('morningTopicInput').value.trim();
             document.getElementById('p_dailyNote').innerText = document.getElementById('dailyNoteInput').value.trim() || 'เหตุการณ์โดยทั่วไปปกติ';
 
-            // ตารางสถิตินักเรียนที่มาเรียนในวันนี้ (ถ้าไม่มาเรียนเป็น 0 ให้แสดง "-" เหมือนต้นฉบับ)
             let tbodyHtml = '';
             let sumTotM = 0, sumTotF = 0;
             let sumPresM = 0, sumPresF = 0;
@@ -775,7 +954,6 @@
                 </tr>
             `;
 
-            // ใส่ชื่อในวงเล็บใต้ช่องลงนาม (ถ้าไม่ได้กรอกชื่อให้เว้นว่างไว้เขียนมือได้)
             const formatSign = (name) => name ? `(${name})` : '\u00A0';
             document.getElementById('p_signHead').innerText = formatSign(headTeacher);
             document.getElementById('p_signCo1').innerText = formatSign(co1);
@@ -1026,6 +1204,11 @@
                 document.getElementById('directorNameInput').value = schoolInfo.directorName || '';
                 editableClasses = classes.map(c => ({ ...c }));
                 renderClassEditor();
+            } else if (id === 'rosterModal') {
+                editableRoster = JSON.parse(JSON.stringify(weeklyRoster));
+                // เปิดมาที่วันของวันที่เลือกอยู่ปัจจุบันโดยอัตโนมัติ
+                selectedRosterDay = getDayOfWeekKey(currentDate);
+                renderRosterTabs();
             }
             document.getElementById(id).classList.remove('hidden');
         }
