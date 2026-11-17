@@ -28,7 +28,7 @@
                 </h1>
                 <div class="flex items-center gap-2 mt-0.5">
                     <span id="connectionStatus" class="inline-flex items-center gap-1 text-[11px] bg-indigo-800/70 px-2 py-0.5 rounded-full text-amber-300">
-                        ● โหมดออฟไลน์ (Local)
+                        ● กำลังเชื่อมต่อ...
                     </span>
                 </div>
             </div>
@@ -158,20 +158,12 @@
                 <button onclick="closeModal('firebaseModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
             </div>
             <p class="text-xs text-slate-600 leading-relaxed">
-                นำโค้ด <b>firebaseConfig</b> (เฉพาะส่วนในปีกกา <code>{ ... }</code>) จากหน้า Project Settings ของ Firebase มาวางด้านล่าง เพื่อเปิดใช้งานการบันทึกข้อมูลออนไลน์และซิงก์ข้ามเครื่อง:
+                ระบบเชื่อมต่อกับฐานข้อมูลของคุณไว้ให้เรียบร้อยแล้ว หากต้องการเปลี่ยนโปรเจกต์ใหม่ สามารถนำโค้ด <b>firebaseConfig</b> (ส่วนในปีกกา <code>{ ... }</code>) มาวางทับด้านล่างได้ครับ:
             </p>
-            <textarea id="firebaseConfigInput" rows="7" placeholder='{
-  "apiKey": "AIzaSy...",
-  "authDomain": "your-app.firebaseapp.com",
-  "databaseURL": "https://your-app-default-rtdb.asia-southeast1.firebasedatabase.app",
-  "projectId": "your-app",
-  "storageBucket": "your-app.appspot.com",
-  "messagingSenderId": "123456789",
-  "appId": "1:123456789:web:abcdef"
-}' class="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+            <textarea id="firebaseConfigInput" rows="7" class="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
             
             <div class="flex justify-between items-center pt-2">
-                <button onclick="disconnectFirebase()" class="text-xs text-rose-600 hover:underline">ยกเลิกการเชื่อมต่อ</button>
+                <button onclick="disconnectFirebase()" class="text-xs text-rose-600 hover:underline">รีเซ็ตการเชื่อมต่อ</button>
                 <div class="flex gap-2">
                     <button onclick="closeModal('firebaseModal')" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg">ปิด</button>
                     <button onclick="saveFirebaseConfig()" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow">บันทึกและเชื่อมต่อ</button>
@@ -203,7 +195,19 @@
     </div>
 
     <script>
-        // --- 1. State & Initial Data ---
+        // --- 1. Default Firebase Config (ฝังค่าเริ่มต้นของโปรเจกต์ให้พร้อมใช้งานทันที) ---
+        const defaultFirebaseConfig = {
+            apiKey: "AIzaSyA2ummTZcCVcg5EEl8xWYzWm-KDqP2v7o8",
+            authDomain: "attendance-tracking-syst-9786a.firebaseapp.com",
+            databaseURL: "https://attendance-tracking-syst-9786a-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "attendance-tracking-syst-9786a",
+            storageBucket: "attendance-tracking-syst-9786a.firebasestorage.app",
+            messagingSenderId: "358369660485",
+            appId: "1:358369660485:web:c120af01c8c4b3ca24dd2c",
+            measurementId: "G-ZNDZYWSJRY"
+        };
+
+        // --- 2. State & Initial Data ---
         const defaultClasses = [
             { id: 'k1', name: 'อนุบาล 1', totalM: 12, totalF: 10 },
             { id: 'k2', name: 'อนุบาล 2', totalM: 14, totalF: 13 },
@@ -216,38 +220,43 @@
         ];
 
         let classes = JSON.parse(localStorage.getItem('att_classes')) || defaultClasses;
-        // โครงสร้าง records: { "2026-11-17": { "p1": { absentM: 1, absentF: 0 }, ... } }
         let allRecords = JSON.parse(localStorage.getItem('att_records')) || {};
         
         let currentDate = new Date().toISOString().slice(0, 10);
-        let chartMode = 'daily'; // 'daily' | 'monthly' | 'yearly'
+        let chartMode = 'daily';
         let db = null;
         let isFirebaseConnected = false;
 
         let barChartInstance = null;
         let doughnutChartInstance = null;
 
-        // ตั้งค่าวันที่เริ่มต้นในช่อง Date Picker
         const datePicker = document.getElementById('datePicker');
         datePicker.value = currentDate;
         updateThaiDateLabel();
 
-        // --- 2. Firebase Connection Logic ---
+        // --- 3. Firebase Connection Logic ---
         function initFirebase() {
             const savedConfigStr = localStorage.getItem('att_firebase_config');
-            if (!savedConfigStr) return;
+            const config = savedConfigStr ? JSON.parse(savedConfigStr) : defaultFirebaseConfig;
 
             try {
-                const config = JSON.parse(savedConfigStr);
                 if (!firebase.apps.length) {
                     firebase.initializeApp(config);
                 }
                 db = firebase.database();
                 isFirebaseConnected = true;
 
-                const statusEl = document.getElementById('connectionStatus');
-                statusEl.className = "inline-flex items-center gap-1 text-[11px] bg-emerald-500/20 border border-emerald-300/40 px-2 py-0.5 rounded-full text-emerald-200 font-medium";
-                statusEl.innerHTML = "● ออนไลน์ (Firebase Sync)";
+                // เช็กสถานะการเชื่อมต่อจริงกับ Server
+                db.ref('.info/connected').on('value', (snap) => {
+                    const statusEl = document.getElementById('connectionStatus');
+                    if (snap.val() === true) {
+                        statusEl.className = "inline-flex items-center gap-1 text-[11px] bg-emerald-500/20 border border-emerald-300/40 px-2 py-0.5 rounded-full text-emerald-200 font-medium";
+                        statusEl.innerHTML = "● ออนไลน์ (Firebase Sync)";
+                    } else {
+                        statusEl.className = "inline-flex items-center gap-1 text-[11px] bg-indigo-800/70 px-2 py-0.5 rounded-full text-amber-300";
+                        statusEl.innerHTML = "● โหมดออฟไลน์ (กำลังรอเน็ต...)";
+                    }
+                });
 
                 // Listen ข้อมูลห้องเรียนแบบ Realtime
                 db.ref('schoolAttendance/classes').on('value', (snapshot) => {
@@ -273,41 +282,41 @@
 
             } catch (err) {
                 console.error("Firebase Init Error:", err);
-                alert("เชื่อมต่อ Firebase ไม่สำเร็จ กรุณาตรวจสอบรูปแบบ Config อีกครั้ง");
+                const statusEl = document.getElementById('connectionStatus');
+                statusEl.innerHTML = "● เชื่อมต่อ Firebase ไม่สำเร็จ";
             }
         }
 
         function saveFirebaseConfig() {
             let raw = document.getElementById('firebaseConfigInput').value.trim();
-            // รองรับกรณีผู้ใช้ก๊อปปี้มาทั้ง const firebaseConfig = { ... };
             const firstBrace = raw.indexOf('{');
             const lastBrace = raw.lastIndexOf('}');
             if (firstBrace !== -1 && lastBrace !== -1) {
                 raw = raw.substring(firstBrace, lastBrace + 1);
             }
             try {
-                // แปลง key ที่ไม่มีเครื่องหมายคำพูดให้เป็น JSON ที่ถูกต้อง
-                const fixedJson = raw.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2": ');
+                // แก้ไข Regex ให้แปลงเฉพาะชื่อ Key ด้านหน้าเครื่องหมาย : (ไม่กระทบ https://)
+                const fixedJson = raw.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
                 const parsed = JSON.parse(fixedJson);
                 if (!parsed.databaseURL) {
                     alert("ไม่พบ databaseURL ใน Config กรุณาตรวจสอบว่าเปิดใช้งาน Realtime Database แล้วหรือยัง");
                     return;
                 }
                 localStorage.setItem('att_firebase_config', JSON.stringify(parsed));
-                location.reload(); // รีโหลดเพื่อเริ่มต้นการเชื่อมต่อใหม่
+                location.reload();
             } catch (e) {
                 alert("รูปแบบโค้ด Config ไม่ถูกต้อง กรุณาก๊อปปี้เฉพาะส่วน { ... } มาวางครับ");
             }
         }
 
         function disconnectFirebase() {
-            if (confirm("ต้องการยกเลิกการเชื่อมต่อ Firebase และกลับไปใช้โหมดออฟไลน์ใช่หรือไม่?")) {
+            if (confirm("ต้องการรีเซ็ตกลับไปใช้การเชื่อมต่อเริ่มต้นใช่หรือไม่?")) {
                 localStorage.removeItem('att_firebase_config');
                 location.reload();
             }
         }
 
-        // --- 3. Date & Data Operations ---
+        // --- 4. Date & Data Operations ---
         function onDateChange() {
             currentDate = datePicker.value;
             updateThaiDateLabel();
@@ -347,7 +356,6 @@
                 if (next >= 0 && next <= cls.totalF) rec.absentF = next;
             }
 
-            // บันทึกลง LocalStorage และ Firebase
             localStorage.setItem('att_records', JSON.stringify(allRecords));
             if (isFirebaseConnected && db) {
                 db.ref(`schoolAttendance/records/${currentDate}/${classId}`).set(rec);
@@ -365,7 +373,7 @@
             updateUI();
         }
 
-        // --- 4. Render UI (Mobile Cards & Desktop Table) ---
+        // --- 5. Render UI ---
         function updateUI() {
             renderClasses();
             updateSummary();
@@ -397,7 +405,6 @@
                     ? `<span class="px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full">✓ ดีเยี่ยม</span>`
                     : `<span class="px-2 py-0.5 text-xs font-medium bg-rose-100 text-rose-700 rounded-full">! ต่ำกว่าเกณฑ์</span>`;
 
-                // Mobile Card View
                 mobileContainer.innerHTML += `
                     <div class="p-4 space-y-3 bg-white">
                         <div class="flex justify-between items-center">
@@ -437,7 +444,6 @@
                     </div>
                 `;
 
-                // Desktop Table View
                 desktopContainer.innerHTML += `
                     <tr class="hover:bg-slate-50/80 transition">
                         <td class="py-3 px-4 font-semibold text-slate-800">${cls.name}</td>
@@ -498,7 +504,6 @@
             document.getElementById('overallPercent').innerText = `${pctAll}%`;
             document.getElementById('percentGenderText').innerText = `ชาย ${pctM}% | หญิง ${pctF}%`;
 
-            // Doughnut Chart
             if (doughnutChartInstance) doughnutChartInstance.destroy();
             doughnutChartInstance = new Chart(document.getElementById('doughnutChart'), {
                 type: 'doughnut',
@@ -517,7 +522,7 @@
             });
         }
 
-        // --- 5. Historical Charts (Daily / Monthly / Yearly) ---
+        // --- 6. Historical Charts ---
         function setChartMode(mode) {
             chartMode = mode;
             ['daily', 'monthly', 'yearly'].forEach(m => {
@@ -554,7 +559,7 @@
                     return tot > 0 ? parseFloat(((pres / tot) * 100).toFixed(1)) : 100;
                 });
             } else if (chartMode === 'monthly') {
-                const yearMonth = currentDate.slice(0, 7); // YYYY-MM
+                const yearMonth = currentDate.slice(0, 7);
                 const recordedDates = Object.keys(allRecords).filter(d => d.startsWith(yearMonth)).sort();
                 if (recordedDates.length === 0) {
                     labels = [currentDate.slice(8, 10) + '/' + currentDate.slice(5, 7)];
@@ -600,11 +605,12 @@
             });
         }
 
-        // --- 6. Modal & Class Management ---
+        // --- 7. Modal & Class Management ---
         function openModal(id) {
             if (id === 'firebaseModal') {
                 const saved = localStorage.getItem('att_firebase_config');
-                if (saved) document.getElementById('firebaseConfigInput').value = saved;
+                const currentCfg = saved ? JSON.parse(saved) : defaultFirebaseConfig;
+                document.getElementById('firebaseConfigInput').value = JSON.stringify(currentCfg, null, 2);
             } else if (id === 'classModal') {
                 renderClassEditor();
             }
@@ -660,7 +666,7 @@
             updateUI();
         }
 
-        // --- 7. Export CSV ---
+        // --- 8. Export CSV ---
         function exportCSV() {
             let csv = `\uFEFFรายงานสถิติการมาเรียน ประจำวันที่ ${currentDate}\n`;
             csv += 'ชั้นเรียน,ชายทั้งหมด,หญิงทั้งหมด,รวมทั้งหมด,มาเรียน(ชาย),มาเรียน(หญิง),รวมมาเรียน,ขาด/ลา(ชาย),ขาด/ลา(หญิง),เปอร์เซ็นต์มาเรียน\n';
