@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
+    
     <!-- Firebase SDK (Compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -21,78 +21,41 @@
             display: inline-block;
             border-bottom: 1px dotted #1e293b;
             padding: 0 6px;
-            min-height: 16px;
-            line-height: 1.2;
+            min-height: 18px;
+            line-height: 1.25;
             vertical-align: baseline;
         }
 
-        /* ===== ตั้งค่าการพิมพ์ A4 ให้พอดี 1 หน้า ===== */
+        /* ตั้งค่าสำหรับการพิมพ์เอกสาร A4 ให้พอดี 1 หน้า */
         @media print {
             @page {
                 size: A4 portrait;
-                margin: 8mm 12mm;
-            }
-
-            html, body {
-                height: auto !important;
-                min-height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                background: #ffffff !important;
-                color: #000000 !important;
+                margin: 10mm 13mm;
             }
             body {
-                font-size: 10.5pt;
-                line-height: 1.3;
-            }
-
-            .no-print { display: none !important; }
-            .print-only { display: block !important; }
-
-            /* ย่อทั้งใบให้พอดี 1 หน้า (ปรับเลขได้ 0.85 - 1) */
-            #printArea {
-                zoom: 0.92;
-                width: 100%;
-                page-break-inside: avoid;
-                break-inside: avoid;
-                page-break-after: avoid;
-                break-after: avoid;
-            }
-
-            #printArea .print-body,
-            #printArea .print-body > div {
-                font-size: 10.5pt;
-                line-height: 1.3;
-            }
-            #printArea .print-title { font-size: 13pt; }
-            #printArea .print-subtitle { font-size: 11pt; }
-            #printArea .print-section-title {
+                background: #ffffff !important;
+                color: #000000 !important;
+                padding: 0 !important;
                 font-size: 11.5pt;
-                margin: 6px 0 3px 0;
+                line-height: 1.45;
             }
-            #printArea .print-sign {
-                font-size: 10pt;
-                margin-top: 14px;
+            .no-print {
+                display: none !important;
             }
-            #printArea .print-sign .sign-row2 { margin-top: 6px; }
-            #printArea .print-sign-name { font-size: 9pt; }
-
-            /* กันข้อความยาวทะลุขอบ */
-            #printArea .whitespace-nowrap { white-space: normal !important; }
-            #printArea .dotted-fill { word-break: break-word; }
-
+            .print-only {
+                display: block !important;
+            }
             table.print-table {
                 width: 100%;
                 border-collapse: collapse;
-                font-size: 9.5pt;
-                margin: 4px 0 6px 0;
+                font-size: 10.5pt;
+                margin: 6px 0 8px 0;
             }
             table.print-table th,
             table.print-table td {
                 border: 1px solid #000000;
-                padding: 1px 3px;
+                padding: 3px 4px;
                 text-align: center;
-                line-height: 1.25;
             }
             table.print-table th {
                 background-color: #dbeafe !important;
@@ -118,7 +81,7 @@
                     </span>
                 </div>
             </div>
-
+            
             <div class="flex flex-wrap gap-1.5 md:gap-2">
                 <button onclick="printReport()" class="bg-white text-indigo-700 hover:bg-indigo-50 text-xs font-bold px-3 py-2 rounded-lg shadow transition flex items-center gap-1">
                     🖨️ พิมพ์ใบรายงาน
@@ -144,7 +107,7 @@
             <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 border-b border-slate-100 pb-3">
                 <div class="flex items-center justify-between sm:justify-start gap-2">
                     <label for="datePicker" class="text-sm font-bold text-slate-700 whitespace-nowrap">📅 วันที่บันทึก:</label>
-                    <input type="date" id="datePicker" onchange="onDateChange()"
+                    <input type="date" id="datePicker" onchange="onDateChange()" 
                         class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50/40 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <div class="flex items-center justify-between sm:justify-end gap-2">
@@ -172,17 +135,17 @@
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div class="md:col-span-2">
                         <label class="block text-xs font-bold text-slate-700 mb-1">ข้าพเจ้า (หัวหน้าเวรประจำวัน)</label>
-                        <input type="text" id="headTeacherInput" oninput="saveDailyMeta()" placeholder="ตั้งค่าในปุ่ม 'ตารางเวรประจำสัปดาห์' หรือพิมพ์ที่นี่"
+                        <input type="text" id="headTeacherInput" oninput="saveDailyMeta()" placeholder="ตั้งค่าในปุ่ม 'ตารางเวรประจำสัปดาห์' หรือพิมพ์ที่นี่" 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">ตั้งแต่เวลา</label>
-                        <input type="text" id="startTimeInput" oninput="saveDailyMeta()" placeholder="07.00"
+                        <input type="text" id="startTimeInput" oninput="saveDailyMeta()" placeholder="07.00" 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">ถึงเวลา</label>
-                        <input type="text" id="endTimeInput" oninput="saveDailyMeta()" placeholder="16.30"
+                        <input type="text" id="endTimeInput" oninput="saveDailyMeta()" placeholder="16.30" 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                 </div>
@@ -191,22 +154,22 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                     <div>
                         <label class="block text-xs font-medium text-slate-600 mb-1">พร้อมด้วย 1. (ครูเวร)</label>
-                        <input type="text" id="coTeacher1Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 1"
+                        <input type="text" id="coTeacher1Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 1" 
                             class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-600 mb-1">2. (ครูเวร)</label>
-                        <input type="text" id="coTeacher2Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 2"
+                        <input type="text" id="coTeacher2Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 2" 
                             class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-600 mb-1">3. (ครูเวร)</label>
-                        <input type="text" id="coTeacher3Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 3"
+                        <input type="text" id="coTeacher3Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 3" 
                             class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-600 mb-1">4. (ครูเวร)</label>
-                        <input type="text" id="coTeacher4Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 4"
+                        <input type="text" id="coTeacher4Input" oninput="saveDailyMeta()" placeholder="ชื่อ-สกุล ครูเวรคนที่ 4" 
                             class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                 </div>
@@ -215,12 +178,12 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-medium text-slate-700 mb-1">ได้ตรวจดูสภาพทั่วไปของโรงเรียนปรากฏว่า</label>
-                        <input type="text" id="generalConditionInput" oninput="saveDailyMeta()" placeholder="ปกติ"
+                        <input type="text" id="generalConditionInput" oninput="saveDailyMeta()" placeholder="ปกติ" 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-700 mb-1">ได้ยืนหน้าประตูโรงเรียนเพื่อรับนักเรียนเข้าสู่โรงเรียนผลปรากฏว่า</label>
-                        <input type="text" id="gateConditionInput" oninput="saveDailyMeta()" placeholder="ปกติ"
+                        <input type="text" id="gateConditionInput" oninput="saveDailyMeta()" placeholder="ปกติ" 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                 </div>
@@ -229,12 +192,12 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">อบรมนักเรียนหน้าเสาธง (เวลา 08.00 น.) เรื่อง</label>
-                        <input type="text" id="morningTopicInput" oninput="saveDailyMeta()" placeholder="เช่น การนิเทศการอ่านของ สพป., การมีสมาธิในการรับฟัง..."
+                        <input type="text" id="morningTopicInput" oninput="saveDailyMeta()" placeholder="เช่น การนิเทศการอ่านของ สพป., การมีสมาธิในการรับฟัง..." 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">เหตุการณ์สำหรับวันนี้</label>
-                        <input type="text" id="dailyNoteInput" oninput="saveDailyMeta()" placeholder="เหตุการณ์โดยทั่วไปปกติ"
+                        <input type="text" id="dailyNoteInput" oninput="saveDailyMeta()" placeholder="เหตุการณ์โดยทั่วไปปกติ" 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
                 </div>
@@ -275,7 +238,7 @@
                     <h2 class="font-bold text-slate-800 text-base">📝 บันทึกนักเรียนที่ไม่มาเรียนรายห้อง</h2>
                     <p class="text-xs text-slate-500">กดปุ่ม <span class="font-bold text-rose-600">+</span> หรือ <span class="font-bold">-</span> เฉพาะนักเรียนที่ <span class="text-rose-600 font-semibold">ไม่มาเรียน (ขาด/ลา/ป่วย)</span></p>
                 </div>
-                <input type="text" id="searchInput" onkeyup="renderClasses()" placeholder="🔍 ค้นหาชั้นเรียน..."
+                <input type="text" id="searchInput" onkeyup="renderClasses()" placeholder="🔍 ค้นหาชั้นเรียน..." 
                     class="text-sm border border-slate-200 rounded-lg px-3 py-2 w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
 
@@ -328,15 +291,15 @@
     </main>
 
     <!-- ===================================================================== -->
-    <!-- แบบฟอร์มสำหรับพิมพ์ลงกระดาษ A4 -->
+    <!-- แบบฟอร์มสำหรับพิมพ์ลงกระดาษ A4 (ถอดแบบจากใบรายงานครูเวรต้นฉบับทุกบรรทัด) -->
     <!-- ===================================================================== -->
     <div id="printArea" class="hidden print-only w-full text-black">
-        <div class="text-center mb-1">
-            <div class="font-bold print-title" id="printHeaderTitle">บันทึกการปฏิบัติงานครูเวรประจำวัน</div>
-            <div class="print-subtitle" id="printHeaderDate">ประจำวันที่ ...</div>
+        <div class="text-center mb-2">
+            <div class="font-bold text-base" id="printHeaderTitle">บันทึกการปฏิบัติงานครูเวรประจำวัน</div>
+            <div class="text-sm" id="printHeaderDate">ประจำวันที่ ...</div>
         </div>
 
-        <div class="space-y-1 print-body">
+        <div class="space-y-1 text-[11.5pt]">
             <div class="flex items-baseline">
                 <span class="whitespace-nowrap">ข้าพเจ้า</span>
                 <span id="p_headTeacher" class="dotted-fill flex-1 text-center font-medium"></span>
@@ -353,7 +316,7 @@
                 <span id="p_coTeacher4" class="dotted-fill flex-1 text-center font-medium"></span>
             </div>
 
-            <div class="flex items-baseline pl-6">
+                        <div class="flex items-baseline pl-6">
                 <span class="whitespace-nowrap">ได้มาปฏิบัติงานครูเวรประจำวันตั้งแต่เวลา</span>
                 <span id="p_startTime" class="dotted-fill w-16 text-center font-medium">07.00</span>
                 <span class="whitespace-nowrap">ถึงเวลา</span>
@@ -387,7 +350,7 @@
         </div>
 
         <!-- ตารางสถิตินักเรียนที่มาเรียนในวันนี้ -->
-        <div class="text-center font-bold underline print-section-title">
+        <div class="text-center font-bold underline text-[12pt] mt-2.5 mb-1">
             สถิตินักเรียนที่มาเรียนในวันนี้
         </div>
 
@@ -418,7 +381,7 @@
         </table>
 
         <!-- ข้อความปฏิบัติงานช่วงกลางวัน-เลิกเรียน และเหตุการณ์สำหรับวันนี้ -->
-        <div class="space-y-1 print-body">
+        <div class="space-y-1 text-[11.5pt] mt-2">
             <div class="flex items-baseline pl-4">
                 <span class="whitespace-nowrap mr-2">-</span>
                 <span>เวลา 11.30 น. ให้สัญญาณพักรับประทานอาหารกลางวัน</span>
@@ -437,44 +400,44 @@
             </div>
         </div>
 
-        <!-- ส่วนลงนาม 3 คอลัมน์ 2 แถว -->
-        <div class="grid grid-cols-3 gap-3 mt-7 text-center print-sign">
+        <!-- ส่วนลงนาม 3 คอลัมน์ 2 แถว เหมือนต้นฉบับ -->
+        <div class="grid grid-cols-3 gap-3 mt-7 text-[10.5pt] text-center">
             <div class="space-y-0.5">
                 <div>(ลงชื่อ)........................................</div>
-                <div id="p_signHead" class="print-sign-name"></div>
+                <div id="p_signHead" class="text-[9.5pt]"></div>
                 <div>หัวหน้าเวรประจำวัน</div>
             </div>
             <div class="space-y-0.5">
                 <div>(ลงชื่อ)........................................</div>
-                <div id="p_signCo1" class="print-sign-name"></div>
+                <div id="p_signCo1" class="text-[9.5pt]"></div>
                 <div>ครูเวรประจำวัน</div>
             </div>
             <div class="space-y-0.5">
                 <div>(ลงชื่อ)........................................</div>
-                <div id="p_signCo2" class="print-sign-name"></div>
+                <div id="p_signCo2" class="text-[9.5pt]"></div>
                 <div>ครูเวรประจำวัน</div>
             </div>
 
-            <div class="space-y-0.5 mt-3 sign-row2">
+            <div class="space-y-0.5 mt-3">
                 <div>(ลงชื่อ)........................................</div>
-                <div id="p_signCo3" class="print-sign-name"></div>
+                <div id="p_signCo3" class="text-[9.5pt]"></div>
                 <div>ครูเวรประจำวัน</div>
             </div>
-            <div class="space-y-0.5 mt-3 sign-row2">
+            <div class="space-y-0.5 mt-3">
                 <div>(ลงชื่อ)........................................</div>
-                <div id="p_signCo4" class="print-sign-name"></div>
+                <div id="p_signCo4" class="text-[9.5pt]"></div>
                 <div>ครูเวรประจำวัน</div>
             </div>
-            <div class="space-y-0.5 mt-3 sign-row2">
+            <div class="space-y-0.5 mt-3">
                 <div>(ลงชื่อ)........................................</div>
-                <div id="p_signDirector" class="print-sign-name"></div>
+                <div id="p_signDirector" class="text-[9.5pt]"></div>
                 <div>ผู้อำนวยการโรงเรียน</div>
             </div>
         </div>
     </div>
 
     <!-- ===================================================================== -->
-    <!-- Modal 1: ตารางเวรประจำสัปดาห์ -->
+    <!-- Modal 1: ตารางเวรประจำสัปดาห์ (ตั้งค่ารายชื่อครูเวร จันทร์ - อาทิตย์) -->
     <!-- ===================================================================== -->
     <div id="rosterModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 no-print">
         <div class="bg-white rounded-2xl max-w-xl w-full p-5 shadow-xl space-y-4 max-h-[92vh] flex flex-col">
@@ -486,36 +449,40 @@
                 <button onclick="closeModal('rosterModal')" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
             </div>
 
-            <div class="flex flex-wrap gap-1.5 bg-slate-100 p-1.5 rounded-xl" id="rosterDayTabs"></div>
+            <!-- แถบเลือกวันในสัปดาห์ -->
+            <div class="flex flex-wrap gap-1.5 bg-slate-100 p-1.5 rounded-xl" id="rosterDayTabs">
+                <!-- สร้างปุ่มวันจันทร์-อาทิตย์ด้วย JS -->
+            </div>
 
+            <!-- ฟอร์มกรอกรายชื่อของวันที่เลือก -->
             <div class="space-y-3 overflow-y-auto pr-1 flex-1 bg-amber-50/40 p-3.5 rounded-xl border border-amber-100">
                 <div class="font-bold text-sm text-amber-900" id="rosterCurrentDayTitle">ตารางเวรวันจันทร์</div>
-
+                
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">⭐ หัวหน้าเวรประจำวัน</label>
-                    <input type="text" id="r_headTeacher" oninput="syncCurrentRosterTab()" placeholder="เช่น นางประนอม ดุจานุทัศน์"
+                    <input type="text" id="r_headTeacher" oninput="syncCurrentRosterTab()" placeholder="เช่น นางประนอม ดุจานุทัศน์" 
                         class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
                         <label class="block text-xs font-medium text-slate-700 mb-1">ครูเวรคนที่ 1</label>
-                        <input type="text" id="r_coTeacher1" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล"
+                        <input type="text" id="r_coTeacher1" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล" 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-700 mb-1">ครูเวรคนที่ 2</label>
-                        <input type="text" id="r_coTeacher2" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล"
+                        <input type="text" id="r_coTeacher2" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล" 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-700 mb-1">ครูเวรคนที่ 3</label>
-                        <input type="text" id="r_coTeacher3" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล"
+                        <input type="text" id="r_coTeacher3" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล" 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-700 mb-1">ครูเวรคนที่ 4</label>
-                        <input type="text" id="r_coTeacher4" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล"
+                        <input type="text" id="r_coTeacher4" oninput="syncCurrentRosterTab()" placeholder="ชื่อ-สกุล" 
                             class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
                     </div>
                 </div>
@@ -546,16 +513,16 @@
             <div class="bg-indigo-50/60 p-3 rounded-xl border border-indigo-100 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                     <label class="block text-[11px] font-bold text-indigo-900 mb-1">🏫 ชื่อโรงเรียน (แสดงหัวใบพิมพ์)</label>
-                    <input type="text" id="schoolNameInput" placeholder="เช่น โรงเรียนบ้านพัฒนาสามัคคี"
+                    <input type="text" id="schoolNameInput" placeholder="เช่น โรงเรียนบ้านพัฒนาสามัคคี" 
                         class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
                 </div>
                 <div>
                     <label class="block text-[11px] font-bold text-indigo-900 mb-1">👤 ชื่อผู้อำนวยการโรงเรียน (ใต้ลายเซ็น)</label>
-                    <input type="text" id="directorNameInput" placeholder="เช่น นายวิชัย รักเรียน"
+                    <input type="text" id="directorNameInput" placeholder="เช่น นายวิชัย รักเรียน" 
                         class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
                 </div>
             </div>
-
+            
             <div id="classEditorList" class="overflow-y-auto space-y-2 pr-1 flex-1"></div>
 
             <div class="border-t pt-3 flex flex-wrap justify-between items-center gap-2">
@@ -612,10 +579,11 @@
         let allRecords = JSON.parse(localStorage.getItem('att_records')) || {};
         let dailyMeta = JSON.parse(localStorage.getItem('att_daily_meta')) || {};
         let schoolInfo = JSON.parse(localStorage.getItem('att_school_info')) || { schoolName: '', directorName: '' };
+        // ตารางเวรประจำสัปดาห์: { "1": { headTeacher: "", coTeacher1: "", ... }, ... }
         let weeklyRoster = JSON.parse(localStorage.getItem('att_weekly_roster')) || {};
         let editableRoster = {};
         let selectedRosterDay = '1';
-
+        
         let currentDate = new Date().toISOString().slice(0, 10);
         let chartMode = 'daily';
         let db = null;
@@ -704,7 +672,7 @@
 
         function getDayOfWeekKey(dateStr) {
             const d = new Date(dateStr + 'T00:00:00');
-            return String(d.getDay());
+            return String(d.getDay()); // '0' (อาทิตย์) - '6' (เสาร์)
         }
 
         function getFormattedThaiDate(dateStr) {
@@ -730,6 +698,7 @@
             const dayKey = getDayOfWeekKey(currentDate);
             const roster = weeklyRoster[dayKey] || {};
 
+            // ถ้าวันนี้ยังไม่เคยบันทึกรายชื่อครูเวรไว้ ให้ดึงจากตารางเวรประจำสัปดาห์มาใส่อัตโนมัติ
             const hasSavedTeachers = meta.headTeacher || meta.coTeacher1 || meta.coTeacher2 || meta.coTeacher3 || meta.coTeacher4;
 
             document.getElementById('headTeacherInput').value = hasSavedTeachers ? (meta.headTeacher || '') : (roster.headTeacher || '');
@@ -746,6 +715,7 @@
             document.getElementById('dailyNoteInput').value = meta.note !== undefined ? meta.note : 'เหตุการณ์โดยทั่วไปปกติ';
         }
 
+        // กดปุ่มเพื่อดึงรายชื่อจากตารางเวรประจำสัปดาห์มาทับวันปัจจุบัน
         function applyWeeklyRosterToToday(showAlert = false) {
             const dayKey = getDayOfWeekKey(currentDate);
             const roster = weeklyRoster[dayKey];
@@ -1234,6 +1204,7 @@
                 renderClassEditor();
             } else if (id === 'rosterModal') {
                 editableRoster = JSON.parse(JSON.stringify(weeklyRoster));
+                // เปิดมาที่วันของวันที่เลือกอยู่ปัจจุบันโดยอัตโนมัติ
                 selectedRosterDay = getDayOfWeekKey(currentDate);
                 renderRosterTabs();
             }
@@ -1260,11 +1231,11 @@
             list.innerHTML = editableClasses.map((c, idx) => `
                 <div class="flex items-center gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-200">
                     <div class="flex flex-col gap-0.5">
-                        <button type="button" onclick="moveClassRow(${idx}, -1)" ${idx === 0 ? 'disabled' : ''}
+                        <button type="button" onclick="moveClassRow(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} 
                             class="px-1.5 py-0.5 text-[10px] leading-none rounded bg-white border border-slate-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 disabled:pointer-events-none">
                             ▲
                         </button>
-                        <button type="button" onclick="moveClassRow(${idx}, 1)" ${idx === editableClasses.length - 1 ? 'disabled' : ''}
+                        <button type="button" onclick="moveClassRow(${idx}, 1)" ${idx === editableClasses.length - 1 ? 'disabled' : ''} 
                             class="px-1.5 py-0.5 text-[10px] leading-none rounded bg-white border border-slate-300 hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 disabled:pointer-events-none">
                             ▼
                         </button>
@@ -1272,17 +1243,17 @@
 
                     <span class="text-[11px] font-bold text-slate-400 w-5 text-center">${idx + 1}.</span>
 
-                    <input type="text" value="${c.name}" id="cls_name_${idx}" placeholder="ชื่อห้อง"
+                    <input type="text" value="${c.name}" id="cls_name_${idx}" placeholder="ชื่อห้อง" 
                         class="flex-1 min-w-0 border border-slate-300 rounded px-2 py-1.5 text-xs font-bold bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500">
-
+                    
                     <div class="flex items-center gap-1 text-xs">
                         <span class="text-slate-500">ช:</span>
-                        <input type="number" min="0" value="${c.totalM}" id="cls_m_${idx}"
+                        <input type="number" min="0" value="${c.totalM}" id="cls_m_${idx}" 
                             class="w-12 border border-slate-300 rounded px-1 py-1.5 text-center bg-white">
                     </div>
                     <div class="flex items-center gap-1 text-xs">
                         <span class="text-slate-500">ญ:</span>
-                        <input type="number" min="0" value="${c.totalF}" id="cls_f_${idx}"
+                        <input type="number" min="0" value="${c.totalF}" id="cls_f_${idx}" 
                             class="w-12 border border-slate-300 rounded px-1 py-1.5 text-center bg-white">
                     </div>
 
@@ -1297,11 +1268,11 @@
             syncEditorInputs();
             const targetIdx = idx + direction;
             if (targetIdx < 0 || targetIdx >= editableClasses.length) return;
-
+            
             const temp = editableClasses[idx];
             editableClasses[idx] = editableClasses[targetIdx];
             editableClasses[targetIdx] = temp;
-
+            
             renderClassEditor();
         }
 
