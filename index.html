@@ -112,7 +112,7 @@
                 </div>
                 <div class="flex items-center justify-between sm:justify-end gap-2">
                     <span id="thaiDateLabel" class="text-xs font-medium text-slate-600"></span>
-                    <button onclick="resetTodayData()" class="text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg font-medium transition">
+                    <button onclick="openResetConfirmModal()" class="text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg font-medium transition">
                         ล้างยอดวันนี้เป็น 0
                     </button>
                 </div>
@@ -236,7 +236,7 @@
             <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <h2 class="font-bold text-slate-800 text-base">📝 บันทึกนักเรียนที่ไม่มาเรียนรายห้อง</h2>
-                    <p class="text-xs text-slate-500">กดปุ่ม <span class="font-bold text-rose-600">+</span> หรือ <span class="font-bold">-</span> เฉพาะนักเรียนที่ <span class="text-rose-600 font-semibold">ไม่มาเรียน (ขาด/ลา/ป่วย)</span></p>
+                    <p class="text-xs text-slate-500">กดปุ่ม <span class="font-bold text-rose-600">+</span> หรือ <span class="font-bold text-rose-600">-</span> เฉพาะนักเรียนที่ <span class="text-rose-600 font-semibold">ไม่มาเรียน (ขาด/ลา/ป่วย)</span></p>
                 </div>
                 <input type="text" id="searchInput" onkeyup="renderClasses()" placeholder="🔍 ค้นหาชั้นเรียน..." 
                     class="text-sm border border-slate-200 rounded-lg px-3 py-2 w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -316,7 +316,7 @@
                 <span id="p_coTeacher4" class="dotted-fill flex-1 text-center font-medium"></span>
             </div>
 
-                        <div class="flex items-baseline pl-6">
+            <div class="flex items-baseline pl-6">
                 <span class="whitespace-nowrap">ได้มาปฏิบัติงานครูเวรประจำวันตั้งแต่เวลา</span>
                 <span id="p_startTime" class="dotted-fill w-16 text-center font-medium">07.00</span>
                 <span class="whitespace-nowrap">ถึงเวลา</span>
@@ -533,6 +533,35 @@
                     <button onclick="closeModal('classModal')" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 rounded-lg">ยกเลิก</button>
                     <button onclick="saveClassConfig()" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow">บันทึกข้อมูลทั้งหมด</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- Modal 3: ยืนยันการล้างยอดประจำวัน -->
+    <!-- ===================================================================== -->
+    <div id="resetConfirmModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xl shrink-0">
+                    ⚠️
+                </div>
+                <div>
+                    <h3 class="font-bold text-base text-slate-800">ยืนยันการล้างยอดวันนี้</h3>
+                    <p class="text-xs text-slate-600 mt-1">
+                        ต้องการล้างยอดนักเรียนที่ไม่มาเรียนของ <span id="resetConfirmDateLabel" class="font-bold text-rose-600"></span> ทั้งหมดเป็น 0 ใช่หรือไม่?
+                    </p>
+                    <p class="text-[11px] text-slate-400 mt-1">ข้อมูลยอดไม่มาเรียนของวันนี้จะถูกลบออกทั้งหมด</p>
+                </div>
+            </div>
+
+            <div class="border-t pt-3 flex justify-end gap-2">
+                <button type="button" onclick="closeModal('resetConfirmModal')" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition">
+                    ยกเลิก
+                </button>
+                <button type="button" onclick="confirmResetTodayData()" class="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow transition">
+                    ยืนยันล้างยอดเป็น 0
+                </button>
             </div>
         </div>
     </div>
@@ -849,13 +878,18 @@
             updateUI();
         }
 
-        function resetTodayData() {
-            if (!confirm(`ต้องการล้างยอดไม่มาเรียนของวันที่ ${currentDate} ทั้งหมดเป็น 0 ใช่หรือไม่?`)) return;
+        function openResetConfirmModal() {
+            document.getElementById('resetConfirmDateLabel').innerText = getFormattedThaiDate(currentDate);
+            openModal('resetConfirmModal');
+        }
+
+        function confirmResetTodayData() {
             delete allRecords[currentDate];
             localStorage.setItem('att_records', JSON.stringify(allRecords));
             if (isFirebaseConnected && db) {
                 db.ref(`schoolAttendance/records/${currentDate}`).remove();
             }
+            closeModal('resetConfirmModal');
             updateUI();
         }
 
